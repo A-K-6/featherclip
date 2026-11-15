@@ -166,6 +166,9 @@ if (smokeStage === 2) {
     render();
     if (renderedCount() !== 1) throw new Error("Unicode search failed");
     search.value = "";
+    for (const clip of initial.items.filter(c => c.kind !== "text")) {
+      if (await invoke<string>("select_clip", { id: clip.id, copyOnly: false }) !== "copied") throw new Error("synthetic image/file copy failed");
+    }
     const selection = await invoke<string>("select_clip", { id: initial.items[2].id, copyOnly: false });
     if (selection !== "copied") throw new Error("synthetic mode attempted real paste");
     const copied = await invoke<Snapshot>("snapshot");

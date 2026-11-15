@@ -3,21 +3,21 @@ use glib::variant::ToVariant;
 
 pub struct Native {
     clipboard: arboard::Clipboard,
-    watcher: Option<Watch>,
+    watcher: Option<Box<Watch>>,
 }
 impl Native {
     pub fn new() -> Result<Self, arboard::Error> {
         Ok(Self {
             clipboard: arboard::Clipboard::new()?,
             watcher: if std::env::var_os("WAYLAND_DISPLAY").is_none() {
-                Watch::new().ok()
+                Watch::new().ok().map(Box::new)
             } else {
                 None
             },
         })
     }
     pub fn changed(&mut self) -> bool {
-        self.watcher.as_mut().is_none_or(Watch::changed)
+        self.watcher.as_deref_mut().is_none_or(Watch::changed)
     }
     pub fn read(&mut self) -> Result<Option<Content>, String> {
         if let Ok(paths) = self.clipboard.get().file_list() {

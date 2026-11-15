@@ -106,12 +106,14 @@ fn handle_action(
                 .map(|clip| clip.content.clone())
                 .ok_or("This clip is no longer in history.")?;
             if let crate::content::Content::Files(uris) = &text {
-                if !uris.iter().all(|uri| {
-                    url::Url::parse(uri)
-                        .ok()
-                        .and_then(|u| u.to_file_path().ok())
-                        .is_some_and(|path| path.exists())
-                }) {
+                if !matches!(clipboard, Ok(Clipboard::Demo(_)))
+                    && !uris.iter().all(|uri| {
+                        url::Url::parse(uri)
+                            .ok()
+                            .and_then(|u| u.to_file_path().ok())
+                            .is_some_and(|path| path.exists())
+                    })
+                {
                     return Err("A source file was moved, deleted, or is unavailable. Copy the files again.".into());
                 }
             }
