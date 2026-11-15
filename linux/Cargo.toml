@@ -1,6 +1,6 @@
 [package]
 name = "featherclip"
-version = "2.0.0"
+version = "2.0.1"
 description = "A tiny native clipboard popup for Ubuntu"
 authors = ["Aeen Karimian <aeenakrimian@gmail.com>"]
 license = "MIT"

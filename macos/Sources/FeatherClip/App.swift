@@ -6,8 +6,37 @@ import ImageIO
 import ServiceManagement
 
 final class ClipboardPanel: NSPanel {
+    var advanceFocus: ((Bool) -> Void)?
+    var dismiss: (() -> Void)?
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .keyDown,
+            event.modifierFlags.intersection([.command, .control, .option]).isEmpty
+        {
+            if event.keyCode == 48 {
+                advanceFocus?(event.modifierFlags.contains(.shift))
+                return
+            }
+            if event.keyCode == 53 {
+                dismiss?()
+                return
+            }
+        }
+        super.sendEvent(event)
+    }
+}
+final class KeyboardButton: NSButton {
+    override var acceptsFirstResponder: Bool { true }
+    override func keyDown(with event: NSEvent) {
+        if [36, 49, 76].contains(event.keyCode),
+            event.modifierFlags.intersection([.command, .control, .option]).isEmpty
+        {
+            if !event.isARepeat { performClick(nil) }
+        } else {
+            super.keyDown(with: event)
+        }
+    }
 }
 final class ClipTable: NSTableView {
     var choose: ((Bool) -> Void)?
@@ -38,8 +67,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTableViewDataSource,
     let table = ClipTable()
     let status = NSTextField(labelWithString: "Listening")
     let hint = NSTextField(labelWithString: "")
-    let pause = NSButton(title: "Pause", target: nil, action: nil)
-    let clear = NSButton(title: "Clear", target: nil, action: nil)
+    let pause = KeyboardButton(title: "Pause", target: nil, action: nil)
+    let clear = KeyboardButton(title: "Clear", target: nil, action: nil)
+    let more = KeyboardButton()
+    let close = KeyboardButton()
     var clips: [Clip] = []
     var visible: [Clip] = []
     var paused = false
@@ -51,8 +82,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTableViewDataSource,
     var generation = 0
     var busy = false
     var menuOpen = false
+    var focusPending = false
     var nativeGlass = false
     var smokePhase = 0
+    var smokeFocusAttempts = 0
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -107,7 +140,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTableViewDataSource,
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool)
         -> Bool
     {
-        show()
+        if !panel.isVisible { show() }
         return false
     }
     func applicationWillTerminate(_ notification: Notification) {
@@ -117,7 +150,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTableViewDataSource,
     private func makePanel() {
         panel = ClipboardPanel(
             contentRect: .init(x: 0, y: 0, width: 360, height: 430),
-            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+            styleMask: [.borderless], backing: .buffered, defer: false)
         panel.title = "FeatherClip"
         panel.delegate = self
         panel.level = .floating
@@ -131,6 +164,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTableViewDataSource,
         ]
         panel.tabbingMode = .disallowed
         panel.animationBehavior = .utilityWindow
+        panel.advanceFocus = { [weak self] in self?.advanceFocus(backwards: $0) }
+        panel.dismiss = { [weak self] in self?.dismiss() }
         let content = NSView(frame: panel.contentView!.bounds)
         content.autoresizingMask = [.width, .height]
         if #available(macOS 26.0, *) {
@@ -153,9 +188,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTableViewDataSource,
         }
         let title = NSTextField(labelWithString: "Clipboard")
         title.font = .systemFont(ofSize: 13, weight: .semibold)
-        let close = NSButton(
-            image: NSImage(systemSymbolName: "xmark", accessibilityDescription: "Close clipboard")!,
-            target: self, action: #selector(dismiss))
+        close.image = NSImage(
+            systemSymbolName: "xmark", accessibilityDescription: "Close clipboard")
+        close.target = self
+        close.action = #selector(dismiss)
         close.isBordered = false
         close.toolTip = "Close (Esc)"
         let heading = NSStackView(views: [title, NSView(), close])
@@ -193,11 +229,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTableViewDataSource,
         clear.target = self
         clear.action = #selector(clearHistory)
         for button in [pause, clear] { button.bezelStyle = .inline }
-        let more = NSButton(
-            image: NSImage(
-                systemSymbolName: "ellipsis.circle", accessibilityDescription: "More options")!,
-            target: self, action: #selector(options))
+        more.image = NSImage(
+            systemSymbolName: "ellipsis.circle", accessibilityDescription: "More options")
+        more.target = self
+        more.action = #selector(options)
         more.isBordered = false
+        more.toolTip = "More options (Tab, then Space or Enter)"
         let footer = NSStackView(views: [pause, clear, NSView(), more])
         footer.orientation = .horizontal
         let stack = NSStackView(views: [heading, search, status, scroll, footer, hint])
@@ -250,15 +287,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTableViewDataSource,
             )
         }
         search.stringValue = ""
-        reload()
+        reload(resetSelection: true)
+        focusPending = true
+        // A global shortcut must take focus even when the destination has not yielded activation.
+        NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
-        panel.makeFirstResponder(search)
+        focusSearchIfPending()
         service.refresh()
         updateHint()
     }
-    @objc func dismiss() { panel.orderOut(nil) }
+    func applicationDidBecomeActive(_ notification: Notification) { focusSearchIfPending() }
+    func focusSearchIfPending() {
+        guard focusPending, panel.isVisible, NSApp.isActive else { return }
+        panel.makeKeyAndOrderFront(nil)
+        if panel.makeFirstResponder(search) { focusPending = false }
+    }
+    func advanceFocus(backwards: Bool) {
+        var controls: [NSView] = [search]
+        if !visible.isEmpty { controls.append(table) }
+        controls += [pause, clear, more, close].filter { $0.isEnabled }
+        let index =
+            controls.firstIndex { view in
+                panel.firstResponder === view
+                    || (view === search && search.currentEditor() === panel.firstResponder)
+            } ?? 0
+        let next = (index + (backwards ? controls.count - 1 : 1)) % controls.count
+        panel.makeFirstResponder(controls[next])
+    }
+    @objc func dismiss() {
+        let restore = NSApp.isActive
+        hide()
+        if restore { target?.activate(options: []) }
+    }
+    func hide() {
+        generation += 1
+        focusPending = false
+        panel.orderOut(nil)
+    }
     func windowDidResignKey(_ notification: Notification) {
-        if !demo && !keepOpen && !menuOpen { dismiss() }
+        if !demo && !keepOpen && !menuOpen { hide() }
     }
     func apply(_ snapshot: Snapshot) {
         clips = snapshot.items
@@ -271,15 +338,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTableViewDataSource,
         reload()
         updateHint()
     }
-    func reload() {
+    func reload(resetSelection: Bool = false) {
+        let selected =
+            !resetSelection && visible.indices.contains(table.selectedRow)
+            ? visible[table.selectedRow].id : nil
         let query = search.stringValue
         visible = clips.filter { query.isEmpty || $0.label.localizedCaseInsensitiveContains(query) }
         table.reloadData()
+        if let row = visible.firstIndex(where: { $0.id == selected }) ?? (visible.isEmpty ? nil : 0)
+        {
+            table.selectRowIndexes(.init(integer: row), byExtendingSelection: false)
+        } else {
+            table.deselectAll(nil)
+        }
     }
     func updateHint() {
         hint.stringValue =
             AXIsProcessTrusted()
-            ? "Click to paste · Shift-click to copy" : "Click to copy · Enable direct paste in •••"
+            ? "Enter to paste · Shift+Enter to copy · Tab for options"
+            : "Enter to copy · Tab for ••• to enable direct paste"
     }
     func numberOfRows(in tableView: NSTableView) -> Int { visible.count }
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int)
@@ -338,7 +415,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTableViewDataSource,
         cell.setAccessibilityLabel(clip.label)
         return cell
     }
-    func controlTextDidChange(_ obj: Notification) { reload() }
+    func controlTextDidChange(_ obj: Notification) { reload(resetSelection: true) }
     func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool
     {
         if selector == #selector(NSResponder.moveDown(_:))
@@ -388,19 +465,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTableViewDataSource,
                 self.hint.stringValue = "Copied · Reopen from your destination app"
                 return
             }
-            self.dismiss()
+            self.hide()
             destination.activate(options: [])
-            self.paste(into: destination, attempt: 0)
+            self.paste(into: destination, session: self.generation, attempt: 0)
         }
     }
-    func paste(into destination: NSRunningApplication, attempt: Int) {
+    func paste(into destination: NSRunningApplication, session: Int, attempt: Int) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) { [weak self] in
             guard let self else { return }
-            guard !destination.isTerminated else { return }
+            guard self.generation == session, !self.panel.isVisible, !destination.isTerminated
+            else { return }
             if NSWorkspace.shared.frontmostApplication?.processIdentifier
                 != destination.processIdentifier
             {
-                if attempt < 15 { self.paste(into: destination, attempt: attempt + 1) }
+                if attempt < 15 {
+                    self.paste(into: destination, session: session, attempt: attempt + 1)
+                }
                 return
             }
             let source = CGEventSource(stateID: .combinedSessionState)
@@ -463,32 +543,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTableViewDataSource,
         }
     }
     @objc func quit() { NSApp.terminate(nil) }
-    func smokeStep(_ timer: Timer) {
-        if smokePhase == 0 && clips.count == 5 {
-            guard panel.isVisible, table.numberOfRows == 5, panel.tabbingMode == .disallowed else {
-                exit(1)
-            }
-            if #available(macOS 26.0, *) { guard nativeGlass else { exit(1) } }
-            search.stringValue = "سلام"
-            reload()
-            guard visible.count == 1 else { exit(1) }
-            search.stringValue = ""
-            reload()
-            choose(copyOnly: true)
-            smokePhase = 1
-            service.togglePause()
-        } else if smokePhase == 1 && paused {
-            smokePhase = 2
-            service.clear()
-        } else if smokePhase == 2 && clips.isEmpty {
-            dismiss()
-            show()
-            guard panel.isVisible, visible.isEmpty else { exit(1) }
-            timer.invalidate()
-            print("SMOKE PASS: native AppKit, system material, search, copy, pause, clear, popup")
-            NSApp.terminate(nil)
-        }
-    }
+
 }
 
 @main struct FeatherClipMain {

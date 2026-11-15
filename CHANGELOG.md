@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2.0.1] — 2026-11-16
+
+- Focus the Mac popup and search when opened, while remembering the original paste destination.
+- Support Tab/Shift+Tab through clips and controls, with Space/Enter for buttons and options.
+- Preserve the selected clip during history updates and cancel stale paste retries when reopened.
+- Exercise native keyboard focus, navigation and empty-history controls in the Mac smoke check.
+
 - Add a GitHub Pages download site, project blog, and setup/troubleshooting guide.
 
 - Centralize installer versions and validate release metadata.
@@ -29,7 +36,8 @@ Mac builds are ad-hoc signed and are not Apple-notarized. Upgrading may require 
 
 - Initial open-source, memory-only text clipboard for macOS and Ubuntu.
 
-[Unreleased]: https://github.com/A-K-6/featherclip/compare/v2.0.0...main
+[Unreleased]: https://github.com/A-K-6/featherclip/compare/v2.0.1...main
+[2.0.1]: https://github.com/A-K-6/featherclip/releases/tag/v2.0.1
 [2.0.0]: https://github.com/A-K-6/featherclip/releases/tag/v2.0.0
 [1.1.0]: https://github.com/A-K-6/featherclip/releases/tag/v1.1.0
 [1.0.0]: https://github.com/A-K-6/featherclip/releases/tag/v1.0.0

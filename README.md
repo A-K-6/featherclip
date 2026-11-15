@@ -17,7 +17,7 @@ Community builds are ad-hoc signed and aren't Apple-notarized. If macOS blocks t
 **Ubuntu · 24.04+ · Intel/AMD 64-bit:** download the `.deb` and install:
 
 ```sh
-sudo apt install ./FeatherClip_2.0.0_amd64.deb
+sudo apt install ./FeatherClip_2.0.1_amd64.deb
 ```
 
 Open FeatherClip from Applications. It uses system GTK4 and libadwaita libraries.
@@ -31,6 +31,7 @@ Copy something, focus the app you want to paste into, then open FeatherClip:
 - **⌘⇧V** on Mac; **Ctrl+Alt+V** on Linux/X11 when available.
 - On Wayland, create a custom keyboard shortcut for `featherclip --toggle`.
 - Search, use arrow keys, then **Enter**, or click a clip to paste. **Shift+Enter** copies without pasting; Mac also supports **Shift-click**.
+- On Mac, typing starts in search immediately. **Tab / Shift+Tab** moves between clips and controls; **Space / Enter** opens **•••** when focused.
 - **Escape**, the close button or clicking outside dismisses the popup. Clipboard capture continues in the background.
 - **Pause**, **Clear**, **Start at login**, and **Quit** are native controls. Login startup is off by default.
 
