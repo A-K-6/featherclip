@@ -132,7 +132,11 @@ await refresh();
 search.focus();
 
 // End-to-end acceptance in the real webview, against an in-memory test clipboard.
-if (await invoke<boolean>("test_mode")) {
+const smokeStage = await invoke<number>("test_mode");
+if (smokeStage === 2) {
+  const reopened = await invoke<Snapshot>("snapshot");
+  await invoke("finish_smoke_test", { success: reopened.paused && !reopened.items.length && !clips.children.length && !element("empty").hidden });
+} else if (smokeStage === 1) {
   try {
     const renderedCount = () => clips.children.length;
     const initial = await invoke<Snapshot>("snapshot");

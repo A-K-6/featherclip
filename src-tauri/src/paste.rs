@@ -5,7 +5,7 @@ pub enum Target {
     #[default]
     None,
     #[cfg(target_os = "macos")]
-    Mac { pid: i32, launched: f64 },
+    Mac { pid: i32, launched: Option<f64> },
     #[cfg(target_os = "linux")]
     X11(u32),
     #[cfg(target_os = "linux")]
@@ -16,11 +16,38 @@ pub enum Target {
 pub struct Controller {
     pub target: Mutex<Target>,
     pub busy: AtomicBool,
+    #[cfg(target_os = "macos")]
+    pub previous: std::sync::Arc<Mutex<Target>>,
 }
 
 impl Target {
     pub fn available(self) -> bool {
         !matches!(self, Self::None)
+    }
+}
+
+#[cfg(target_os = "macos")]
+pub fn watch_external_apps(controller: &Controller) {
+    let previous = std::sync::Arc::clone(&controller.previous);
+    *previous.lock().unwrap() = remember();
+    let callback = block2::RcBlock::new(
+        move |_: std::ptr::NonNull<objc2_foundation::NSNotification>| {
+            let target = remember();
+            if target.available() {
+                *previous.lock().unwrap() = target;
+            }
+        },
+    );
+    // The workspace owns this observer until process exit. No foreground polling.
+    unsafe {
+        objc2_app_kit::NSWorkspace::sharedWorkspace()
+            .notificationCenter()
+            .addObserverForName_object_queue_usingBlock(
+                Some(objc2_app_kit::NSWorkspaceDidActivateApplicationNotification),
+                None,
+                None,
+                &callback,
+            );
     }
 }
 
@@ -53,13 +80,15 @@ pub fn remember() -> Target {
         objc2_app_kit::NSWorkspace::sharedWorkspace()
             .frontmostApplication()
             .filter(|app| {
-                app.processIdentifier() > 0 && app.processIdentifier() as u32 != std::process::id()
+                app.processIdentifier() > 0
+                    && app.processIdentifier() as u32 != std::process::id()
+                    && app
+                        .bundleIdentifier()
+                        .is_none_or(|id| id.to_string() != "io.github.AK6.FeatherClip")
             })
-            .and_then(|app| {
-                app.launchDate().map(|date| Target::Mac {
-                    pid: app.processIdentifier(),
-                    launched: date.timeIntervalSince1970(),
-                })
+            .map(|app| Target::Mac {
+                pid: app.processIdentifier(),
+                launched: app.launchDate().map(|date| date.timeIntervalSince1970()),
             })
             .unwrap_or_default()
     }
@@ -100,36 +129,58 @@ pub fn perform(target: Target) -> Result<(), String> {
 }
 
 #[cfg(target_os = "macos")]
-fn mac_paste(pid: i32, launched: f64) -> Result<(), String> {
+fn mac_paste(pid: i32, launched: Option<f64>) -> Result<(), String> {
     use objc2_app_kit::{NSApplicationActivationOptions, NSRunningApplication, NSWorkspace};
-    use objc2_core_graphics::{CGEvent, CGEventFlags};
+    use objc2_core_graphics::{
+        CGEvent, CGEventFlags, CGEventSource, CGEventSourceStateID, CGEventTapLocation, CGEventType,
+    };
     if !access_allowed() {
         return Err("Copied. Allow FeatherClip in System Settings → Privacy & Security → Accessibility to enable direct paste.".into());
     }
     let app = NSRunningApplication::runningApplicationWithProcessIdentifier(pid)
         .filter(|app| !app.isTerminated())
         .filter(|app| {
-            app.launchDate()
-                .is_some_and(|d| d.timeIntervalSince1970() == launched)
+            launched.is_none_or(|time| {
+                app.launchDate()
+                    .is_some_and(|d| d.timeIntervalSince1970() == time)
+            })
         })
         .ok_or("Copied, but the original app has closed. Paste manually in another app.")?;
     if !app.activateWithOptions(NSApplicationActivationOptions::empty()) {
         return Err("Copied, but the original app couldn't be activated.".into());
     }
-    // Wait for activation, then verify the destination immediately before posting to its PID.
+    // Wait for activation and verify the destination before using the native session stream.
     for _ in 0..20 {
         if NSWorkspace::sharedWorkspace()
             .frontmostApplication()
             .is_some_and(|a| a.processIdentifier() == pid)
         {
-            let down =
-                CGEvent::new_keyboard_event(None, 9, true).ok_or("Couldn't create Paste event.")?;
-            let up = CGEvent::new_keyboard_event(None, 9, false)
-                .ok_or("Couldn't create Paste event.")?;
-            CGEvent::set_flags(Some(&down), CGEventFlags::MaskCommand);
-            CGEvent::set_flags(Some(&up), CGEventFlags::MaskCommand);
-            CGEvent::post_to_pid(pid, Some(&down));
-            CGEvent::post_to_pid(pid, Some(&up));
+            std::thread::sleep(std::time::Duration::from_millis(60));
+            if !NSWorkspace::sharedWorkspace()
+                .frontmostApplication()
+                .is_some_and(|a| a.processIdentifier() == pid)
+            {
+                return Err(
+                    "Copied. The destination changed before Paste, so no keys were sent.".into(),
+                );
+            }
+            let source = CGEventSource::new(CGEventSourceStateID::CombinedSessionState)
+                .ok_or("Couldn't create Paste source.")?;
+            let command = CGEventFlags::from_bits_retain(CGEventFlags::MaskCommand.0 | 8);
+            for (key, down, modifier, flags) in [
+                (55, true, true, command),
+                (9, true, false, command),
+                (9, false, false, command),
+                (55, false, true, CGEventFlags::empty()),
+            ] {
+                let event = CGEvent::new_keyboard_event(Some(&source), key, down)
+                    .ok_or("Couldn't create Paste event.")?;
+                if modifier {
+                    CGEvent::set_type(Some(&event), CGEventType::FlagsChanged);
+                }
+                CGEvent::set_flags(Some(&event), flags);
+                CGEvent::post(CGEventTapLocation::SessionEventTap, Some(&event));
+            }
             return Ok(());
         }
         std::thread::sleep(std::time::Duration::from_millis(15));

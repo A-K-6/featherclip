@@ -1044,6 +1044,7 @@ name = "featherclip"
 version = "1.1.0"
 dependencies = [
  "arboard",
+ "block2",
  "gio",
  "glib",
  "objc2",

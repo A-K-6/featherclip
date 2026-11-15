@@ -3,6 +3,7 @@
 mod clipboard;
 mod history;
 mod paste;
+mod popup;
 mod worker;
 
 use serde::Serialize;
@@ -18,6 +19,8 @@ use worker::{Action, Worker};
 struct Mode {
     demo: bool,
     smoke: bool,
+    smoke_reopened: std::sync::atomic::AtomicBool,
+    verify_paste: bool,
 }
 
 #[derive(Serialize)]
@@ -151,8 +154,18 @@ fn quit(app: AppHandle) {
 }
 
 #[tauri::command]
-fn test_mode(app: AppHandle) -> bool {
-    app.state::<Mode>().smoke
+fn test_mode(app: AppHandle) -> u8 {
+    let mode = app.state::<Mode>();
+    if !mode.smoke {
+        0
+    } else if mode
+        .smoke_reopened
+        .load(std::sync::atomic::Ordering::Acquire)
+    {
+        2
+    } else {
+        1
+    }
 }
 
 #[tauri::command]
@@ -161,7 +174,32 @@ fn finish_smoke_test(app: AppHandle, success: bool) -> Result<(), String> {
         return Err("Not in smoke-test mode.".into());
     }
     if success {
-        println!("SMOKE PASS: webview, IPC, synthetic history, copy, pause, clear");
+        if !app
+            .state::<Mode>()
+            .smoke_reopened
+            .swap(true, std::sync::atomic::Ordering::AcqRel)
+        {
+            if let Some(window) = app.get_webview_window("history") {
+                popup::check(&window)?;
+                let handle = app.clone();
+                window.on_window_event(move |event| {
+                    if matches!(event, tauri::WindowEvent::Destroyed) {
+                        let app = handle.clone();
+                        std::thread::spawn(move || {
+                            // Let the native close finish before testing a fresh webview.
+                            std::thread::sleep(std::time::Duration::from_millis(100));
+                            show_history(&app);
+                        });
+                    }
+                });
+                window.close().map_err(|e| e.to_string())?;
+                return Ok(());
+            }
+        }
+        if let Some(window) = app.get_webview_window("history") {
+            popup::check(&window)?;
+        }
+        println!("SMOKE PASS: webview, IPC, synthetic history, copy, pause, clear, popup reopen");
     } else {
         eprintln!("SMOKE FAIL: frontend acceptance check");
     }
@@ -173,19 +211,27 @@ fn show_history(app: &AppHandle) {
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
         if let Some(window) = handle.get_webview_window("history") {
+            popup::prepare(&window);
             let _ = window.show();
             let _ = window.unminimize();
             let _ = window.set_focus();
             return;
         }
         let demo = handle.state::<Mode>().demo;
-        *handle.state::<paste::Controller>().target.lock().unwrap() = if demo {
+        let target = if demo {
             paste::Target::None
         } else {
             paste::remember()
         };
+        #[cfg(target_os = "macos")]
+        let target = if target.available() {
+            target
+        } else {
+            *handle.state::<paste::Controller>().previous.lock().unwrap()
+        };
+        *handle.state::<paste::Controller>().target.lock().unwrap() = target;
         // Create only when opened. Closing destroys the webview, releasing its resources.
-        if let Ok(window) =
+        let result =
             WebviewWindowBuilder::new(&handle, "history", WebviewUrl::App("index.html".into()))
                 .title("FeatherClip")
                 .incognito(true)
@@ -194,10 +240,13 @@ fn show_history(app: &AppHandle) {
                 .resizable(false)
                 .skip_taskbar(true)
                 .always_on_top(true)
+                .visible(false)
+                .focused(false)
                 .center()
-                .build()
-        {
-            if !demo {
+                .build();
+        if let Ok(window) = result {
+            popup::prepare(&window);
+            if !demo && !handle.state::<Mode>().verify_paste {
                 let popup = window.clone();
                 let seen_focus =
                     std::sync::atomic::AtomicBool::new(window.is_focused().unwrap_or(false));
@@ -232,7 +281,10 @@ fn show_history(app: &AppHandle) {
                     });
                 }
             }
+            let _ = window.show();
             let _ = window.set_focus();
+        } else if let Err(error) = result {
+            eprintln!("Couldn't open clipboard popup: {error}");
         }
     });
 }
@@ -248,6 +300,7 @@ fn toggle_history(app: &AppHandle) {
 fn main() {
     let smoke = std::env::args().any(|arg| arg == "--smoke-test");
     let demo = smoke || std::env::args().any(|arg| arg == "--demo");
+    let verify_paste = std::env::args().any(|arg| arg == "--verify-paste");
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, args, _| {
             if args.iter().any(|arg| arg == "--toggle") {
@@ -266,7 +319,12 @@ fn main() {
                 })
                 .build(),
         )
-        .manage(Mode { demo, smoke })
+        .manage(Mode {
+            demo,
+            smoke,
+            smoke_reopened: std::sync::atomic::AtomicBool::new(false),
+            verify_paste,
+        })
         .manage(paste::Controller::default())
         .invoke_handler(tauri::generate_handler![
             snapshot,
@@ -283,6 +341,10 @@ fn main() {
             finish_smoke_test
         ])
         .setup(move |app| {
+            #[cfg(target_os = "macos")]
+            if !demo {
+                paste::watch_external_apps(&app.state::<paste::Controller>());
+            }
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             let worker = Worker::start(app.handle().clone(), demo);
@@ -329,7 +391,13 @@ fn main() {
         })
         .build(tauri::generate_context!())
         .expect("Couldn't start FeatherClip")
-        .run(|_, event| {
+        .run(|app, event| {
+            #[cfg(target_os = "macos")]
+            if matches!(event, tauri::RunEvent::Reopen { .. }) {
+                show_history(app);
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = app;
             if let tauri::RunEvent::ExitRequested {
                 code: None, api, ..
             } = event

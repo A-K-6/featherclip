@@ -36,7 +36,7 @@ task_failed=1
 gdbus wait --session --timeout 45 io.github.AK6.FeatherClip.Gnome
 # The headless session starts in Overview; mimic returning to a normal desktop.
 # Unsafe Eval exists only inside this disposable test compositor.
-gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell --method org.gnome.Shell.Eval 'Main.overview.hide();'
+gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell --method org.gnome.Shell.Eval 'global._clipTestKeyboard = imports.gi.Clutter.get_default_backend().get_default_seat().create_virtual_device(imports.gi.Clutter.InputDeviceType.KEYBOARD_DEVICE); Main.overview.hide();'
 python3 scripts/paste-fixture.py > "$task_runtime/fixture.log" 2>&1 &
 task_fixture_pid=$!
 gdbus wait --session --timeout 20 io.github.AK6.FeatherClip.PasteFixture
