@@ -52,7 +52,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb dbus-x11
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb dbus-x11 gnome-shell openbox python3-gi gir1.2-gtk-3.0
       - name: macOS targets
         if: runner.os == 'macOS'
         run: rustup target add ${{ matrix.target }}
@@ -64,6 +64,12 @@ jobs:
         if: runner.os == 'Linux'
         run: dbus-run-session -- xvfb-run -a env FEATHERCLIP_ISOLATED_DISPLAY=1 cargo test --locked --manifest-path src-tauri/Cargo.toml isolated_x11_clipboard_roundtrip -- --ignored --test-threads=1
       - run: cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      - name: X11 previous-window paste integration
+        if: runner.os == 'Linux'
+        run: dbus-run-session -- xvfb-run -a bash scripts/test-x11-paste.sh
+      - name: GNOME Wayland bridge integration
+        if: runner.os == 'Linux'
+        run: dbus-run-session -- bash scripts/test-gnome.sh
       - name: Package
         run: npm run tauri -- build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
       - name: macOS app smoke check
@@ -74,15 +80,6 @@ jobs:
       - name: Linux app smoke check
         if: runner.os == 'Linux'
         run: dbus-run-session -- xvfb-run -a env WEBKIT_DISABLE_COMPOSITING_MODE=1 src-tauri/target/x86_64-unknown-linux-gnu/release/featherclip --smoke-test
-      - name: Install headless GNOME
-        if: runner.os == 'Linux'
-        run: sudo apt-get install -y gnome-shell dbus-x11 openbox python3-gi gir1.2-gtk-3.0
-      - name: X11 previous-window paste integration
-        if: runner.os == 'Linux'
-        run: dbus-run-session -- xvfb-run -a bash scripts/test-x11-paste.sh
-      - name: GNOME Wayland bridge integration
-        if: runner.os == 'Linux'
-        run: dbus-run-session -- bash scripts/test-gnome.sh
       - uses: actions/upload-artifact@v4
         with:
           name: featherclip-${{ matrix.target }}
