@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "The local clipboard history window. No filesystem, network, shell, or remote page access.",
+  "windows": ["history"],
+  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten"]
+}
