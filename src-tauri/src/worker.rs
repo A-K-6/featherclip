@@ -27,6 +27,16 @@ impl Worker {
     pub fn start(app: AppHandle, demo: bool) -> Self {
         let mut history = History::new();
         if demo {
+            history.insert(crate::content::Content::Image {
+                mime: "image/png",
+                bytes: include_bytes!("../icons/32x32.png").to_vec().into(),
+            });
+            history.insert(
+                crate::content::file_uris(
+                    b"file:///tmp/FeatherClip%20demo.txt\nfile:///tmp/FeatherClip%20demo.png",
+                )
+                .unwrap(),
+            );
             for text in [
                 "Hello from FeatherClip 👋",
                 "A tiny home for the things you copy.",
@@ -93,7 +103,7 @@ fn handle_action(
                 .items
                 .iter()
                 .find(|clip| clip.id == id)
-                .map(|clip| clip.text.clone())
+                .map(|clip| clip.content.clone())
                 .ok_or("This clip is no longer in history.")?;
             clipboard
                 .as_mut()
@@ -203,7 +213,13 @@ mod tests {
         let mut clipboard = Ok(Clipboard::Demo(None));
         handle_action(&shared, &mut clipboard, Action::Copy(id)).unwrap();
         assert_eq!(
-            clipboard.as_mut().unwrap().read().unwrap().as_deref(),
+            clipboard
+                .as_mut()
+                .unwrap()
+                .read()
+                .unwrap()
+                .as_ref()
+                .and_then(crate::content::Content::text),
             Some("first")
         );
         assert_eq!(shared.lock().unwrap().history.items[0].id, id);
@@ -212,7 +228,13 @@ mod tests {
         handle_action(&shared, &mut clipboard, Action::Clear).unwrap();
         assert!(handle_action(&shared, &mut clipboard, Action::Copy(id)).is_err());
         assert_eq!(
-            clipboard.as_mut().unwrap().read().unwrap().as_deref(),
+            clipboard
+                .as_mut()
+                .unwrap()
+                .read()
+                .unwrap()
+                .as_ref()
+                .and_then(crate::content::Content::text),
             Some("first")
         );
     }

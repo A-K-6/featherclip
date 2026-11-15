@@ -17,19 +17,22 @@ tauri-plugin-single-instance = "2"
 tauri-plugin-autostart = "2"
 tauri-plugin-global-shortcut = "2"
 serde = { version = "1", features = ["derive"] }
+url = "2"
+image = { version = "0.25", default-features = false, features = ["png", "tiff"] }
+base64 = "0.22"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
 block2 = "0.6"
-objc2-app-kit = { version = "0.3", default-features = false, features = ["NSPasteboard", "NSWorkspace", "NSRunningApplication", "NSWindow", "libc"] }
-objc2-foundation = { version = "0.3", default-features = false, features = ["NSString", "NSDate", "NSNotification", "NSOperation", "block2"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["NSPasteboard", "NSPasteboardItem", "NSWorkspace", "NSRunningApplication", "NSWindow", "libc"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["NSString", "NSData", "NSArray", "NSDate", "NSNotification", "NSOperation", "block2"] }
 objc2-core-graphics = { version = "0.3", default-features = false, features = ["CGEvent", "CGEventSource", "CGEventTypes", "CGRemoteOperation", "libc"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-arboard = { version = "3.7", default-features = false, features = ["wayland-data-control"] }
+arboard = { version = "3.7", default-features = false, features = ["wayland-data-control", "image-data"] }
 gio = "0.18"
 glib = "0.18"
-x11rb = { version = "0.13", features = ["xtest"] }
+x11rb = { version = "0.13", features = ["xtest", "xfixes"] }
 
 [profile.release]
 opt-level = "s"

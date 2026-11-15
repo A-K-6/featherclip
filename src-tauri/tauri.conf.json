@@ -12,15 +12,15 @@
   "app": {
     "windows": [],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' asset: http://asset.localhost; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: asset: http://asset.localhost; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"
     }
   },
   "bundle": {
     "active": true,
     "targets": ["app", "dmg", "deb"],
     "category": "Utility",
-    "shortDescription": "Your last 30 text clips, kept close.",
-    "longDescription": "A small, offline clipboard history for macOS and Ubuntu. Keeps 30 recent text clips in memory, with search, pause, clear, and optional launch at login. History is discarded on quit.",
+    "shortDescription": "Your last 30 clips, kept close.",
+    "longDescription": "A small, offline clipboard popup for macOS and Ubuntu. Keeps recent text, images, and file references in bounded memory, with search, pause, clear, and optional launch at login. History is discarded on quit.",
     "copyright": "Copyright © 2026 Aeen Karimian",
     "license": "MIT",
     "homepage": "https://github.com/A-K-6/featherclip",

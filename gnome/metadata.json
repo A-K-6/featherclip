@@ -4,5 +4,5 @@
   "description": "Lets the local FeatherClip app read/write the GNOME Wayland clipboard and paste a selected clip into the previous window. No history, polling, storage, or networking in this extension.",
   "shell-version": ["45", "46", "47", "48", "49", "50", "51"],
   "url": "https://github.com/A-K-6/featherclip",
-  "version": 2
+  "version": 3
 }

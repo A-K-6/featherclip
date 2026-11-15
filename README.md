@@ -30,7 +30,7 @@ Other Linux desktops are best effort: X11 and Wayland compositors supporting the
 
 ## Use
 
-- Copy text as usual. Open FeatherClip from the tray/menu bar or your applications launcher.
+- Copy text, an image, or files as usual. Open FeatherClip from the tray/menu bar or your applications launcher. Images have a small preview; file entries show their names.
 - Keep your destination app active and open the popup. Search, then click a clip or press **Enter**: FeatherClip restores the previous app and sends Paste. **Shift-click** or **Shift+Enter** copies without pasting.
 - **⌘⇧V** opens history on macOS; **Ctrl+Alt+V** on Linux/X11 when available. In Wayland, add a custom desktop keyboard shortcut for the command `featherclip --toggle`; opening it again focuses the running instance. The shortcut toggles the popup; **Escape** or clicking outside dismisses it. Arrow keys browse clips, and Enter selects the first result when search has focus.
 - **Pause** and **Clear** sit below the clip list. **Start at login** and **Quit** are under the **•••** menu. Startup is off by default.
@@ -38,13 +38,14 @@ Other Linux desktops are best effort: X11 and Wayland compositors supporting the
 
 ## Small by design
 
-- **30 unique text clips**, newest first; up to **100 KiB of UTF-8 per clip**.
+- **30 unique clips**, newest first. Text is limited to **100 KiB** per clip; PNG/TIFF images to **8 MiB** each. Retained clipboard payloads are capped at **24 MiB** in total; the oldest entries are removed first. Image previews are cached at 96 × 64 pixels or smaller.
 - **Memory-only history**: no history database, cloud sync, accounts, analytics, or clipboard logs. History starts with new copies after launch. Paused copies aren't backfilled on resume.
 - **Direct paste** on macOS, Linux/X11, and Ubuntu/GNOME Wayland. The previous destination is captured before the popup opens and checked before sending Paste. No global keyboard monitoring.
 - On macOS, choose **••• → Enable direct paste** and allow FeatherClip in **System Settings → Privacy & Security → Accessibility**. Capture and copy work without this permission. After granting access, focus your destination app and reopen the popup.
 - Other Wayland desktops currently offer copy only; use Ctrl+V manually there. If a destination has closed or cannot regain focus, the clip stays copied for manual pasting.
-- Images, files, and rich formatting are outside this first release. Text is pasted exactly, including Unicode and line breaks.
-- The history window is created on demand and destroyed when closed. The background worker checks every 750 ms and skips reads while paused.
+- **Images and file references** work on macOS and Ubuntu/GNOME Wayland; X11 supports PNG images and files. Files stay at their original location: FeatherClip stores references, never file contents, and selection copies rather than cuts them. A moved or deleted source needs to be copied again. Images/files can paste only into apps that accept that content. Rich text is captured as plain text; arbitrary application-specific clipboard formats aren't retained.
+- Other Wayland desktops offer text/file capture and manual paste; image capture requires GNOME or X11. Text is pasted exactly, including Unicode and line breaks.
+- The history window is created on demand and destroyed when closed. On macOS it floats over Spaces/full-screen apps and cannot become a window tab. The background worker checks every 750 ms and skips reads while paused. macOS/GNOME/X11 change notifications prevent re-reading unchanged image payloads.
 - Plain TypeScript and CSS, with the system webview. No React, Electron, bundled Chromium, or runtime web requests. "Lightweight" describes the design; system-webview memory varies by platform.
 
 **Clipboard privacy:** ordinary copied text can contain secrets. Pause before copying sensitive text and clear history when appropriate. Known concealed clipboard markers are skipped on macOS and by the GNOME bridge; markers aren't available consistently across every backend. Clear removes FeatherClip's history; it leaves the current system clipboard intact. OS swap/crash handling and third-party clipboard managers are outside the app's control.
@@ -84,7 +85,7 @@ npm run tauri -- build --target aarch64-apple-darwin --bundles app,dmg
 npm run tauri -- build --target x86_64-apple-darwin --bundles app,dmg
 ```
 
-`--demo` runs with synthetic clips and an in-memory clipboard. `--smoke-test` checks the real webview, IPC, Unicode search, copy selection, pause, and clear against that synthetic clipboard, then exits. Neither mode reads your real clipboard or enables launch at login. CI builds and exercises the app separately on macOS and Ubuntu.
+`--demo` runs with synthetic text, an image, file references, and an in-memory clipboard. `--smoke-test` checks the real webview, IPC, image preview, Unicode search, copy selection, pause, clear, and closing/reopening the popup, then exits. Neither mode reads your real clipboard or enables launch at login. CI builds and exercises the app separately on macOS and Ubuntu.
 
 GNOME source lives in [`gnome/`](gnome). It is packaged system-wide by the `.deb`; it does not need to be downloaded separately. Clipboard and previous-window paste requests use local session D-Bus, never a listening TCP port. If upgrading the GNOME bridge from 1.0, disable and re-enable it (or log out/in) to load the new methods. Extensions run inside GNOME Shell, so keep changes there small and review them carefully.
 

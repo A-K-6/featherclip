@@ -3,11 +3,15 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
+import Meta from 'gi://Meta';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 const NAME = 'io.github.AK6.FeatherClip.Gnome';
 const PATH = '/io/github/AK6/FeatherClip/Gnome';
 const XML = `<node><interface name="${NAME}">
+  <method name="Revision"><arg type="u" direction="out"/></method>
+  <method name="ReadContent"><arg type="s" direction="out"/><arg type="ay" direction="out"/></method>
+  <method name="WriteContent"><arg type="s" direction="in"/><arg type="ay" direction="in"/></method>
   <method name="ReadText"><arg type="s" direction="out"/></method>
   <method name="WriteText"><arg type="s" direction="in"/></method>
   <method name="RememberTarget"><arg type="u" direction="in"/><arg type="b" direction="out"/></method>
@@ -18,9 +22,56 @@ const XML = `<node><interface name="${NAME}">
 export default class FeatherClipBridge extends Extension {
     enable() {
         this._clipboard = St.Clipboard.get_default();
+        this._revision = 0;
+        this._selection = global.display.get_selection();
+        this._changed = this._selection.connect('owner-changed', (_selection, type) => {
+            if (type === Meta.SelectionType.CLIPBOARD) this._revision = (this._revision + 1) >>> 0;
+        });
         this._object = Gio.DBusExportedObject.wrapJSObject(XML, this);
         this._owner = Gio.bus_own_name(Gio.BusType.SESSION, NAME, Gio.BusNameOwnerFlags.NONE,
             connection => this._object.export(connection, PATH), null, null);
+    }
+
+    Revision() { return this._revision; }
+
+    ReadContentAsync(_params, invocation) {
+        const reply = (mime, bytes) => invocation.return_value(new GLib.Variant('(say)', [mime, bytes]));
+        const types = this._clipboard.get_mimetypes(St.ClipboardType.CLIPBOARD);
+        if (types.some(type => ['org.nspasteboard.ConcealedType', 'org.nspasteboard.TransientType', 'x-kde-passwordManagerHint'].includes(type))) {
+            reply('', []);
+            return;
+        }
+        const type = ['text/uri-list', 'x-special/gnome-copied-files', 'image/png', 'image/tiff',
+            'text/plain;charset=utf-8', 'UTF8_STRING', 'text/plain', 'STRING'].find(t => types.includes(t));
+        if (!type) { reply('', []); return; }
+        const revision = this._revision;
+        const limit = type.startsWith('image/') ? 8 * 1024 * 1024 : 102400;
+        const stream = Gio.MemoryOutputStream.new_resizable();
+        const cancel = new Gio.Cancellable();
+        let timeout = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1500, () => {
+            timeout = 0;
+            cancel.cancel();
+            return GLib.SOURCE_REMOVE;
+        });
+        // Bound the transfer inside Shell; St.get_content() uses an unlimited transfer.
+        this._selection.transfer_async(Meta.SelectionType.CLIPBOARD, type, limit + 1, stream, cancel, (selection, result) => {
+            if (timeout) GLib.source_remove(timeout);
+            try {
+                selection.transfer_finish(result);
+                stream.close(null);
+                const bytes = stream.steal_as_bytes();
+                if (bytes.get_size() > limit || this._revision !== revision) reply('', []);
+                else reply(type.startsWith('image/') ? type : ['text/uri-list', 'x-special/gnome-copied-files'].includes(type) ? 'text/uri-list' : 'text/plain', bytes.get_data());
+            } catch { reply('', []); }
+        });
+    }
+
+    WriteContent(mime, bytes) {
+        const image = ['image/png', 'image/tiff'].includes(mime);
+        if ((!image && !['text/plain', 'text/uri-list'].includes(mime)) || bytes.length > (image ? 8 * 1024 * 1024 : 102400))
+            throw new Error('Unsupported clipboard content');
+        if (mime === 'text/plain') this._clipboard.set_text(St.ClipboardType.CLIPBOARD, new TextDecoder().decode(bytes));
+        else this._clipboard.set_content(St.ClipboardType.CLIPBOARD, mime, new GLib.Bytes(bytes));
     }
 
     // Read only when the running desktop app requests it; the bridge stores no text.
@@ -104,6 +155,9 @@ export default class FeatherClipBridge extends Extension {
     }
 
     disable() {
+        if (this._changed) this._selection.disconnect(this._changed);
+        this._changed = 0;
+        this._selection = null;
         if (this._pasteTimer) GLib.source_remove(this._pasteTimer);
         if (this._target && this._targetClosed) this._target.disconnect(this._targetClosed);
         this._targetClosed = 0;

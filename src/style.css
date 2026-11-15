@@ -21,9 +21,9 @@ kbd { flex-shrink: 0; font: inherit; font-size: 10px; color: var(--muted); }
 .history { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
 #clips { list-style: none; margin: 0; padding: 0; }
 #clips li + li { border-top: 1px solid var(--line); }
-.clip { display: block; width: 100%; border: 0; border-radius: 4px; padding: 10px 8px; color: inherit; background: transparent; text-align: start; }
+.clip { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; border-radius: 4px; padding: 10px 8px; color: inherit; background: transparent; text-align: start; }
 .clip:hover, .clip:focus-visible { background: var(--hover); }
-.clip-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.clip-text { min-width: 0; flex: 1; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 #empty { padding: 45px 15px; text-align: center; color: var(--muted); }
 #empty h2 { font-size: 13px; font-weight: 500; margin: 0 0 6px; }
 #empty p { font-size: 12px; line-height: 1.5; margin: 0; }
@@ -46,3 +46,4 @@ summary::-webkit-details-marker { display: none; }
   :root { color: #e1e6df; background: #212621; --muted: #a0a89d; --line: #384035; --surface: #292f28; --hover: #333e30; --accent: #a5c69a; }
   #notice { background: #373122; color: #e1cfac; border-color: #5d5032; }
 }
+.clip-preview { width: 48px; height: 38px; flex: 0 0 48px; object-fit: contain; border-radius: 4px; font-size: 24px; text-align: center; }

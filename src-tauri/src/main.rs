@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod clipboard;
+mod content;
 mod history;
 mod paste;
 mod popup;
@@ -179,11 +180,13 @@ fn finish_smoke_test(app: AppHandle, success: bool) -> Result<(), String> {
             .smoke_reopened
             .swap(true, std::sync::atomic::Ordering::AcqRel)
         {
+            println!("SMOKE: initial checks passed; closing popup");
             if let Some(window) = app.get_webview_window("history") {
                 popup::check(&window)?;
                 let handle = app.clone();
                 window.on_window_event(move |event| {
                     if matches!(event, tauri::WindowEvent::Destroyed) {
+                        println!("SMOKE: popup destroyed; reopening");
                         let app = handle.clone();
                         std::thread::spawn(move || {
                             // Let the native close finish before testing a fresh webview.
@@ -231,7 +234,7 @@ fn show_history(app: &AppHandle) {
         };
         *handle.state::<paste::Controller>().target.lock().unwrap() = target;
         // Create only when opened. Closing destroys the webview, releasing its resources.
-        let result =
+        let builder =
             WebviewWindowBuilder::new(&handle, "history", WebviewUrl::App("index.html".into()))
                 .title("FeatherClip")
                 .incognito(true)
@@ -240,10 +243,12 @@ fn show_history(app: &AppHandle) {
                 .resizable(false)
                 .skip_taskbar(true)
                 .always_on_top(true)
-                .visible(false)
-                .focused(false)
-                .center()
-                .build();
+                .center();
+        // AppKit needs the Space/tabbing policy before showing. GTK must create
+        // its webview visible so child widgets are mapped by show_all.
+        #[cfg(target_os = "macos")]
+        let builder = builder.visible(false).focused(false);
+        let result = builder.build();
         if let Ok(window) = result {
             popup::prepare(&window);
             if !demo && !handle.state::<Mode>().verify_paste {

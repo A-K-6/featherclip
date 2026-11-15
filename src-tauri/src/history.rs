@@ -1,19 +1,25 @@
+use crate::content::{Content, Kind, MAX_HISTORY};
 use serde::Serialize;
 
 pub const CAPACITY: usize = 30;
-pub const MAX_ITEM_BYTES: usize = 100 * 1024;
+#[cfg(test)]
+pub const MAX_ITEM_BYTES: usize = crate::content::MAX_TEXT;
 
 #[derive(Clone, Serialize, Debug, PartialEq)]
 pub struct Clip {
     pub id: u32,
     pub text: String,
+    pub kind: Kind,
+    pub preview: Option<String>,
+    #[serde(skip)]
+    pub content: Content,
 }
 
 #[derive(Default)]
 pub struct History {
     pub items: Vec<Clip>,
     pub paused: bool,
-    last_seen: Option<String>,
+    last_seen: Option<u64>,
     baseline_pending: bool,
     next_id: u32,
 }
@@ -27,13 +33,14 @@ impl History {
     }
 
     /// The first observation after launch, clear, or resume is a baseline, not a clip.
-    pub fn observe(&mut self, text: Option<String>) -> bool {
+    pub fn observe(&mut self, text: Option<Content>) -> bool {
         if self.paused {
             return false;
         }
-        let text = text.filter(|s| s.len() <= MAX_ITEM_BYTES);
-        let changed = text != self.last_seen;
-        self.last_seen = text.clone();
+        let text = text.filter(Content::valid);
+        let fingerprint = text.as_ref().map(Content::fingerprint);
+        let changed = fingerprint != self.last_seen;
+        self.last_seen = fingerprint;
         if self.baseline_pending {
             self.baseline_pending = false;
             return false;
@@ -44,30 +51,38 @@ impl History {
         text.is_some_and(|text| self.insert(text))
     }
 
-    pub fn insert(&mut self, text: String) -> bool {
-        if text.len() > MAX_ITEM_BYTES
-            || text.trim().is_empty()
-            || self.items.first().is_some_and(|clip| clip.text == text)
+    pub fn insert(&mut self, content: Content) -> bool {
+        if !content.valid()
+            || self
+                .items
+                .first()
+                .is_some_and(|clip| clip.content == content)
         {
             return false;
         }
-        let existing = self.items.iter().position(|clip| clip.text == text);
+        let existing = self.items.iter().position(|clip| clip.content == content);
         let clip = if let Some(index) = existing {
             self.items.remove(index)
         } else {
             self.next_id += 1;
             Clip {
                 id: self.next_id,
-                text,
+                text: content.label(),
+                kind: content.kind(),
+                preview: content.preview(),
+                content,
             }
         };
         self.items.insert(0, clip);
         self.items.truncate(CAPACITY);
+        while self.items.iter().map(|c| c.content.size()).sum::<usize>() > MAX_HISTORY {
+            self.items.pop();
+        }
         true
     }
 
-    pub fn copied(&mut self, text: String) {
-        self.last_seen = Some(text.clone());
+    pub fn copied(&mut self, text: Content) {
+        self.last_seen = Some(text.fingerprint());
         self.insert(text);
         self.baseline_pending = false;
     }
@@ -115,13 +130,13 @@ mod tests {
     fn bounds_count_and_utf8_bytes() {
         let mut history = History::new();
         for i in 0..100 {
-            history.insert(i.to_string());
+            history.insert(i.to_string().into());
         }
         assert_eq!(history.items.len(), CAPACITY);
         assert_eq!(history.items[0].text, "99");
         assert_eq!(history.items[29].text, "70");
-        assert!(!history.insert("é".repeat(MAX_ITEM_BYTES / 2 + 1)));
-        assert!(history.insert("a".repeat(MAX_ITEM_BYTES)));
+        assert!(!history.insert("é".repeat(MAX_ITEM_BYTES / 2 + 1).into()));
+        assert!(history.insert("a".repeat(MAX_ITEM_BYTES).into()));
         assert!(!history.insert(" \t\n ".into()));
     }
 
@@ -166,9 +181,32 @@ mod tests {
         let mut history = History::new();
         history.observe(None);
         history.observe(Some("keep".into()));
-        assert!(!history.observe(Some("x".repeat(MAX_ITEM_BYTES + 1))));
+        assert!(!history.observe(Some("x".repeat(MAX_ITEM_BYTES + 1).into())));
         assert!(history.last_seen.is_none());
         assert!(!history.observe(None));
         assert_eq!(history.items.len(), 1);
+    }
+
+    #[test]
+    fn images_share_payloads_deduplicate_and_evict_by_total_size() {
+        use crate::content::MAX_IMAGE;
+        let mut history = History::new();
+        for n in 1..=4 {
+            history.insert(Content::Image {
+                mime: "image/png",
+                bytes: vec![n; MAX_IMAGE].into(),
+            });
+        }
+        assert_eq!(history.items.len(), 3);
+        let content = history.items[2].content.clone();
+        let id = history.items[2].id;
+        history.copied(content.clone());
+        assert_eq!(history.items[0].id, id);
+        assert_eq!(history.items.len(), 3);
+        assert!(!history.observe(Some(content)));
+        assert!(!history.insert(Content::Image {
+            mime: "image/png",
+            bytes: vec![0; MAX_IMAGE + 1].into()
+        }));
     }
 }

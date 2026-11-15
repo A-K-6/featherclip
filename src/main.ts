@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import "./style.css";
 
-type Clip = { id: number; text: string };
+type Clip = { id: number; text: string; kind: "text" | "image" | "files"; preview: string | null };
 type Snapshot = { items: Clip[]; paused: boolean; error: string | null; gnome: boolean; shortcut: boolean; autostart: boolean; mac: boolean; paste_permission: boolean; paste_target: boolean };
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const search = element<HTMLInputElement>("search");
@@ -57,6 +57,14 @@ function render() {
     text.dir = "auto";
     // Clipboard content is untrusted text. Never interpret HTML or build links from it.
     text.textContent = clip.text.slice(0, 400);
+    if (clip.kind !== "text") {
+      const preview = document.createElement(clip.preview ? "img" : "span");
+      preview.className = "clip-preview";
+      if (preview instanceof HTMLImageElement) { preview.src = clip.preview!; preview.alt = ""; }
+      else { preview.textContent = clip.kind === "files" ? "▤" : "▧"; preview.setAttribute("aria-hidden", "true"); }
+      button.append(preview);
+      button.setAttribute("aria-label", `${clip.kind === "files" ? "Files" : "Image"}: ${clip.text.slice(0, 400)}`);
+    }
     button.append(text);
     button.addEventListener("click", (event) => choose(clip.id, event.shiftKey));
     row.append(button);
@@ -77,7 +85,7 @@ function render() {
   const empty = element("empty");
   empty.hidden = visible.length > 0;
   empty.querySelector("h2")!.textContent = query ? "No matching clips" : state.paused ? "History paused" : "No clips yet";
-  empty.querySelector("p")!.textContent = query ? "Try another search." : state.paused ? "Resume to capture new copies." : "Copy some text to start.";
+  empty.querySelector("p")!.textContent = query ? "Try another search." : state.paused ? "Resume to capture new copies." : "Copy text, an image, or files to start.";
   element("shortcut").hidden = !state.shortcut;
   element("shortcut").textContent = state.mac ? "⌘⇧V" : "Ctrl Alt V";
   element("paste-permission").hidden = !state.mac || state.paste_permission;
@@ -140,10 +148,13 @@ if (smokeStage === 2) {
   try {
     const renderedCount = () => clips.children.length;
     const initial = await invoke<Snapshot>("snapshot");
-    if (initial.items.length !== 3 || renderedCount() !== 3) throw new Error("history did not render");
+    if (initial.items.length !== 5 || renderedCount() !== 5) throw new Error("history did not render");
+    const image = clips.querySelector("img");
+    if (!image || !initial.items.some(c => c.kind === "files" && c.text.includes("FeatherClip demo.txt"))) throw new Error("image/file entries did not render");
+    await image.decode();
     search.focus();
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp" }));
-    if ((document.activeElement as HTMLElement)?.dataset.id !== String(initial.items[2].id)) throw new Error("keyboard navigation failed");
+    if ((document.activeElement as HTMLElement)?.dataset.id !== String(initial.items[4].id)) throw new Error("keyboard navigation failed");
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
     if ((document.activeElement as HTMLElement)?.dataset.id !== String(initial.items[0].id)) throw new Error("keyboard wrap failed");
     const settings = element<HTMLDetailsElement>("settings");
