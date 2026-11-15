@@ -36,7 +36,7 @@ task_failed=1
 gdbus wait --session --timeout 45 io.github.AK6.FeatherClip.Gnome
 # The extension can export D-Bus before Shell finishes starting its desktop.
 task_ready=''
-for task_attempt in {1..100}; do
+for ((task_attempt = 0; task_attempt < 100; task_attempt++)); do
   task_ready=$(gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell --method org.gnome.Shell.Eval 'Main.layoutManager._startingUp === false')
   if [[ $task_ready == "(true, 'true')" ]]; then break; fi
   sleep 0.1
