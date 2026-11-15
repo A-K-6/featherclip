@@ -2,6 +2,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import St from 'gi://St';
+import Clutter from 'gi://Clutter';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 const NAME = 'io.github.AK6.FeatherClip.Gnome';
@@ -9,6 +10,8 @@ const PATH = '/io/github/AK6/FeatherClip/Gnome';
 const XML = `<node><interface name="${NAME}">
   <method name="ReadText"><arg type="s" direction="out"/></method>
   <method name="WriteText"><arg type="s" direction="in"/></method>
+  <method name="RememberTarget"><arg type="u" direction="in"/><arg type="b" direction="out"/></method>
+  <method name="Paste"><arg type="b" direction="out"/></method>
 </interface></node>`;
 
 export default class FeatherClipBridge extends Extension {
@@ -38,7 +41,56 @@ export default class FeatherClipBridge extends Extension {
             this._clipboard.set_text(St.ClipboardType.CLIPBOARD, text);
     }
 
+    RememberTarget(ownPid) {
+        if (this._target && this._targetClosed) this._target.disconnect(this._targetClosed);
+        const window = global.display.focus_window;
+        this._target = window && window.get_pid() !== ownPid ? window : null;
+        this._targetClosed = this._target?.connect('unmanaged', () => {
+            this._target = null;
+            this._targetClosed = 0;
+        }) ?? 0;
+        return !!this._target;
+    }
+
+    PasteAsync(_params, invocation) {
+        const target = this._target;
+        if (target && this._targetClosed) target.disconnect(this._targetClosed);
+        this._targetClosed = 0;
+        this._target = null; // A request consumes its target; never retry a paste implicitly.
+        if (!target || this._pasteTimer) {
+            invocation.return_value(new GLib.Variant('(b)', [false]));
+            return;
+        }
+        try { target.activate(global.get_current_time()); }
+        catch { invocation.return_value(new GLib.Variant('(b)', [false])); return; }
+        let attempts = 0;
+        this._pasteTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 20, () => {
+            if (global.display.focus_window !== target) {
+                if (++attempts < 20) return GLib.SOURCE_CONTINUE;
+                invocation.return_value(new GLib.Variant('(b)', [false]));
+            } else {
+                this._keyboard ??= Clutter.get_default_backend().get_default_seat()
+                    .create_virtual_device(Clutter.InputDeviceType.KEYBOARD_DEVICE);
+                const time = GLib.get_monotonic_time();
+                this._keyboard.notify_keyval(time, Clutter.KEY_Control_L, Clutter.KeyState.PRESSED);
+                this._keyboard.notify_keyval(time, Clutter.KEY_v, Clutter.KeyState.PRESSED);
+                this._keyboard.notify_keyval(time, Clutter.KEY_v, Clutter.KeyState.RELEASED);
+                this._keyboard.notify_keyval(time, Clutter.KEY_Control_L, Clutter.KeyState.RELEASED);
+                invocation.return_value(new GLib.Variant('(b)', [true]));
+            }
+            this._pasteTimer = 0;
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
     disable() {
+        if (this._pasteTimer) GLib.source_remove(this._pasteTimer);
+        if (this._target && this._targetClosed) this._target.disconnect(this._targetClosed);
+        this._targetClosed = 0;
+        this._pasteTimer = 0;
+        this._target = null;
+        this._keyboard?.run_dispose();
+        this._keyboard = null;
         if (this._owner) Gio.bus_unown_name(this._owner);
         this._object?.unexport();
         this._owner = null;

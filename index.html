@@ -8,6 +8,7 @@
   </head>
   <body>
     <main aria-label="Clipboard history">
+      <div class="popup-title" data-tauri-drag-region><strong data-tauri-drag-region>Clipboard</strong><button id="close" aria-label="Close clipboard" title="Close (Esc)">×</button></div>
       <header class="search-wrap">
         <input id="search" type="search" placeholder="Search clips…" aria-label="Search clipboard history" autocomplete="off" spellcheck="false" />
         <kbd id="shortcut" hidden>⌘⇧V</kbd>
@@ -26,12 +27,13 @@
           <summary aria-label="More options" title="More options">•••</summary>
           <div class="options">
             <label><input id="autostart" type="checkbox" /> Start at login</label>
+            <button id="paste-permission" hidden>Enable direct paste…</button>
             <p>History stays in memory<br />and disappears on quit.</p>
             <button id="quit">Quit FeatherClip</button>
           </div>
         </details>
       </footer>
-      <p id="paste-hint">Click to copy · ⌘V to paste</p>
+      <p id="paste-hint">Click to paste · Shift-click to copy</p>
     </main>
     <div id="toast" role="status" hidden></div>
     <script type="module" src="/src/main.ts"></script>

@@ -24,6 +24,7 @@ gsettings set org.gnome.shell enabled-extensions "['featherclip@aeen.github']"
 gnome-shell --wayland --headless --virtual-monitor 1280x720 > "$task_runtime/shell.log" 2>&1 &
 task_shell_pid=$!
 cleanup() {
+  if [[ -n ${task_fixture_pid:-} ]]; then kill "$task_fixture_pid" 2>/dev/null || true; fi
   kill "$task_shell_pid" 2>/dev/null || true
   if [[ ${task_failed:-0} == 1 ]]; then tail -80 "$task_runtime/shell.log"; fi
   rm -rf "$task_runtime"
@@ -31,5 +32,8 @@ cleanup() {
 trap cleanup EXIT
 task_failed=1
 gdbus wait --session --timeout 45 io.github.AK6.FeatherClip.Gnome
-cargo test --locked --manifest-path src-tauri/Cargo.toml isolated_gnome_bridge_roundtrip -- --ignored --test-threads=1
+python3 scripts/paste-fixture.py > "$task_runtime/fixture.log" 2>&1 &
+task_fixture_pid=$!
+gdbus wait --session --timeout 20 io.github.AK6.FeatherClip.PasteFixture
+cargo test --locked --manifest-path src-tauri/Cargo.toml isolated_gnome -- --ignored --test-threads=1
 task_failed=0

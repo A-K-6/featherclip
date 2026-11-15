@@ -3,7 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import "./style.css";
 
 type Clip = { id: number; text: string };
-type Snapshot = { items: Clip[]; paused: boolean; error: string | null; gnome: boolean; shortcut: boolean; autostart: boolean; mac: boolean };
+type Snapshot = { items: Clip[]; paused: boolean; error: string | null; gnome: boolean; shortcut: boolean; autostart: boolean; mac: boolean; paste_permission: boolean; paste_target: boolean };
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const search = element<HTMLInputElement>("search");
 const clips = element<HTMLUListElement>("clips");
@@ -13,6 +13,19 @@ const autostart = element<HTMLInputElement>("autostart");
 let state: Snapshot | undefined;
 let toastTimer: ReturnType<typeof setTimeout>;
 let refreshGeneration = 0;
+let selecting = false;
+
+async function choose(id: number, copyOnly: boolean) {
+  if (selecting) return;
+  selecting = true;
+  try {
+    const result = await invoke<string>("select_clip", { id, copyOnly });
+    if (result === "permission") toast("Copied. Use ••• → Enable direct paste to allow Accessibility, then reopen from your destination app.");
+    else if (result === "copied") toast("Copied.");
+    await refresh();
+  } catch (error) { toast(String(error)); }
+  finally { selecting = false; }
+}
 
 function toast(message: string) {
   const node = element("toast");
@@ -45,10 +58,7 @@ function render() {
     // Clipboard content is untrusted text. Never interpret HTML or build links from it.
     text.textContent = clip.text.slice(0, 400);
     button.append(text);
-    button.addEventListener("click", async () => {
-      try { await invoke("copy_clip", { id: clip.id }); toast("Copied. Ready to paste."); await refresh(); }
-      catch (error) { toast(String(error)); }
-    });
+    button.addEventListener("click", (event) => choose(clip.id, event.shiftKey));
     row.append(button);
     clips.append(row);
     if (focusedId === String(clip.id)) button.focus({ preventScroll: true });
@@ -70,7 +80,9 @@ function render() {
   empty.querySelector("p")!.textContent = query ? "Try another search." : state.paused ? "Resume to capture new copies." : "Copy some text to start.";
   element("shortcut").hidden = !state.shortcut;
   element("shortcut").textContent = state.mac ? "⌘⇧V" : "Ctrl Alt V";
-  element("paste-hint").textContent = `Click to copy · ${state.mac ? "⌘V" : "Ctrl+V"} to paste`;
+  element("paste-permission").hidden = !state.mac || state.paste_permission;
+  element("paste-hint").textContent = !state.paste_permission ? "Click to copy · Enable direct paste in •••" :
+    state.paste_target ? "Click to paste · Shift-click to copy" : "Open from your destination app to paste";
 }
 
 async function refresh() {
@@ -88,12 +100,19 @@ pause.addEventListener("click", () => perform("toggle_pause"));
 clear.addEventListener("click", () => perform("clear_history"));
 autostart.addEventListener("change", () => perform("set_autostart", { enabled: autostart.checked }));
 element("quit").addEventListener("click", () => perform("quit"));
+element("close").addEventListener("click", () => perform("close_window"));
+element("paste-permission").addEventListener("click", () => perform("request_paste_permission"));
 element("gnome").addEventListener("click", () => perform("enable_gnome"));
 document.addEventListener("keydown", (event) => {
   const settings = element<HTMLDetailsElement>("settings");
   if (event.key === "Escape") {
     if (settings.open) { settings.open = false; settings.querySelector("summary")?.focus(); }
     else { void invoke("close_window"); }
+  }
+  if (event.key === "Enter" && !event.repeat) {
+    const button = document.activeElement === search ? clips.querySelector<HTMLButtonElement>(".clip") :
+      (document.activeElement as HTMLElement)?.closest<HTMLButtonElement>(".clip");
+    if (button) { event.preventDefault(); void choose(Number(button.dataset.id), event.shiftKey); }
   }
   if ((event.key === "ArrowDown" || event.key === "ArrowUp") &&
       (document.activeElement === search || (document.activeElement as HTMLElement)?.classList.contains("clip"))) {
@@ -132,7 +151,8 @@ if (await invoke<boolean>("test_mode")) {
     render();
     if (renderedCount() !== 1) throw new Error("Unicode search failed");
     search.value = "";
-    await invoke("copy_clip", { id: initial.items[2].id });
+    const selection = await invoke<string>("select_clip", { id: initial.items[2].id, copyOnly: false });
+    if (selection !== "copied") throw new Error("synthetic mode attempted real paste");
     const copied = await invoke<Snapshot>("snapshot");
     if (copied.items[0].id !== initial.items[2].id) throw new Error("copy failed");
     await invoke("toggle_pause");

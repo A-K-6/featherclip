@@ -68,7 +68,10 @@ jobs:
         run: dbus-run-session -- xvfb-run -a env WEBKIT_DISABLE_COMPOSITING_MODE=1 src-tauri/target/x86_64-unknown-linux-gnu/release/featherclip --smoke-test
       - name: Install headless GNOME
         if: runner.os == 'Linux'
-        run: sudo apt-get install -y gnome-shell dbus-x11
+        run: sudo apt-get install -y gnome-shell dbus-x11 openbox python3-gi gir1.2-gtk-3.0
+      - name: X11 previous-window paste integration
+        if: runner.os == 'Linux'
+        run: dbus-run-session -- xvfb-run -a bash scripts/test-x11-paste.sh
       - name: GNOME Wayland bridge integration
         if: runner.os == 'Linux'
         run: dbus-run-session -- bash scripts/test-gnome.sh

@@ -2,6 +2,7 @@
 
 mod clipboard;
 mod history;
+mod paste;
 mod worker;
 
 use serde::Serialize;
@@ -28,6 +29,8 @@ struct Snapshot {
     shortcut: bool,
     autostart: bool,
     mac: bool,
+    paste_permission: bool,
+    paste_target: bool,
 }
 
 #[tauri::command]
@@ -41,12 +44,53 @@ fn snapshot(app: AppHandle, worker: tauri::State<'_, Worker>) -> Snapshot {
         shortcut: state.shortcut,
         mac: cfg!(target_os = "macos"),
         autostart: app.autolaunch().is_enabled().unwrap_or(false),
+        paste_permission: paste::access_allowed(),
+        paste_target: app
+            .state::<paste::Controller>()
+            .target
+            .lock()
+            .unwrap()
+            .available(),
     }
 }
 
 #[tauri::command]
 async fn copy_clip(worker: tauri::State<'_, Worker>, id: u32) -> Result<(), String> {
     worker.action(Action::Copy(id)).await
+}
+
+#[tauri::command]
+async fn select_clip(app: AppHandle, id: u32, copy_only: bool) -> Result<&'static str, String> {
+    use std::sync::atomic::Ordering;
+    let controller = app.state::<paste::Controller>();
+    if controller.busy.swap(true, Ordering::AcqRel) {
+        return Err("A clip is already being selected.".into());
+    }
+    struct Release<'a>(&'a std::sync::atomic::AtomicBool);
+    impl Drop for Release<'_> {
+        fn drop(&mut self) {
+            self.0.store(false, Ordering::Release);
+        }
+    }
+    let _release = Release(&controller.busy);
+    app.state::<Worker>().action(Action::Copy(id)).await?;
+    if copy_only || app.state::<Mode>().demo {
+        return Ok("copied");
+    }
+    if !paste::access_allowed() {
+        return Ok("permission");
+    }
+    let target = std::mem::take(&mut *controller.target.lock().unwrap());
+    tauri::async_runtime::spawn_blocking(move || paste::perform(target))
+        .await
+        .map_err(|_| "Copied, but Paste couldn't finish. Paste manually.".to_string())??;
+    close_window(app.clone());
+    Ok("pasted")
+}
+
+#[tauri::command]
+fn request_paste_permission(app: AppHandle) -> bool {
+    !app.state::<Mode>().demo && paste::request_access()
 }
 
 #[tauri::command]
@@ -131,16 +175,33 @@ fn show_history(app: &AppHandle) {
             let _ = window.set_focus();
             return;
         }
+        let demo = handle.state::<Mode>().demo;
+        *handle.state::<paste::Controller>().target.lock().unwrap() = if demo {
+            paste::Target::None
+        } else {
+            paste::remember()
+        };
         // Create only when opened. Closing destroys the webview, releasing its resources.
         if let Ok(window) =
             WebviewWindowBuilder::new(&handle, "history", WebviewUrl::App("index.html".into()))
                 .title("FeatherClip")
                 .incognito(true)
                 .inner_size(360.0, 420.0)
-                .min_inner_size(300.0, 300.0)
+                .decorations(false)
+                .resizable(false)
+                .skip_taskbar(true)
+                .always_on_top(true)
                 .center()
                 .build()
         {
+            if !demo {
+                let popup = window.clone();
+                window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::Focused(false) = event {
+                        let _ = popup.close();
+                    }
+                });
+            }
             let _ = window.set_focus();
         }
     });
@@ -158,15 +219,22 @@ fn main() {
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, _, event| {
                     if event.state == ShortcutState::Pressed {
-                        show_history(app);
+                        if app.get_webview_window("history").is_some() {
+                            close_window(app.clone());
+                        } else {
+                            show_history(app);
+                        }
                     }
                 })
                 .build(),
         )
         .manage(Mode { demo, smoke })
+        .manage(paste::Controller::default())
         .invoke_handler(tauri::generate_handler![
             snapshot,
             copy_clip,
+            select_clip,
+            request_paste_permission,
             toggle_pause,
             clear_history,
             set_autostart,

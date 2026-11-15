@@ -1,6 +1,6 @@
 [package]
 name = "featherclip"
-version = "1.0.0"
+version = "1.1.0"
 description = "A tiny, local clipboard history for macOS and Ubuntu"
 authors = ["Aeen Karimian <aeenakrimian@gmail.com>"]
 license = "MIT"
@@ -20,13 +20,15 @@ serde = { version = "1", features = ["derive"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
-objc2-app-kit = { version = "0.3", default-features = false, features = ["NSPasteboard"] }
-objc2-foundation = { version = "0.3", default-features = false, features = ["NSString"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["NSPasteboard", "NSWorkspace", "NSRunningApplication", "libc"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["NSString", "NSDate"] }
+objc2-core-graphics = { version = "0.3", default-features = false, features = ["CGEvent", "CGEventSource", "CGEventTypes", "CGRemoteOperation", "libc"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 arboard = { version = "3.7", default-features = false, features = ["wayland-data-control"] }
 gio = "0.18"
 glib = "0.18"
+x11rb = { version = "0.13", features = ["xtest"] }
 
 [profile.release]
 opt-level = "s"
