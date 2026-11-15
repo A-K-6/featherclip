@@ -16,6 +16,7 @@ pub enum Target {
 pub struct Controller {
     pub target: Mutex<Target>,
     pub busy: AtomicBool,
+    pub popup_session: std::sync::atomic::AtomicU64,
     #[cfg(target_os = "macos")]
     pub previous: std::sync::Arc<Mutex<Target>>,
 }

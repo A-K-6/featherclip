@@ -11,7 +11,7 @@ use serde::Serialize;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
-    AppHandle, Manager, WebviewUrl, WebviewWindowBuilder,
+    AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder,
 };
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
@@ -68,6 +68,7 @@ async fn select_clip(app: AppHandle, id: u32, copy_only: bool) -> Result<&'stati
     use std::sync::atomic::Ordering;
     let controller = app.state::<paste::Controller>();
     let popup = app.get_webview_window("history");
+    let session = controller.popup_session.load(Ordering::Acquire);
     if controller.busy.swap(true, Ordering::AcqRel) {
         return Err("A clip is already being selected.".into());
     }
@@ -89,8 +90,10 @@ async fn select_clip(app: AppHandle, id: u32, copy_only: bool) -> Result<&'stati
     tauri::async_runtime::spawn_blocking(move || paste::perform(target))
         .await
         .map_err(|_| "Copied, but Paste couldn't finish. Paste manually.".to_string())??;
-    if let Some(popup) = popup {
-        let _ = popup.close();
+    if controller.popup_session.load(Ordering::Acquire) == session {
+        if let Some(popup) = popup {
+            let _ = popup::dismiss(&popup);
+        }
     }
     Ok("pasted")
 }
@@ -145,7 +148,7 @@ fn enable_gnome() -> Result<(), String> {
 #[tauri::command]
 fn close_window(app: AppHandle) {
     if let Some(window) = app.get_webview_window("history") {
-        let _ = window.close();
+        let _ = popup::dismiss(&window);
     }
 }
 
@@ -184,18 +187,29 @@ fn finish_smoke_test(app: AppHandle, success: bool) -> Result<(), String> {
             if let Some(window) = app.get_webview_window("history") {
                 popup::check(&window)?;
                 let handle = app.clone();
-                window.on_window_event(move |event| {
-                    if matches!(event, tauri::WindowEvent::Destroyed) {
-                        println!("SMOKE: popup destroyed; reopening");
-                        let app = handle.clone();
-                        std::thread::spawn(move || {
-                            // Let the native close finish before testing a fresh webview.
-                            std::thread::sleep(std::time::Duration::from_millis(100));
-                            show_history(&app);
-                        });
-                    }
-                });
-                window.close().map_err(|e| e.to_string())?;
+                #[cfg(target_os = "linux")]
+                {
+                    popup::dismiss(&window).map_err(|e| e.to_string())?;
+                    std::thread::spawn(move || {
+                        std::thread::sleep(std::time::Duration::from_millis(100));
+                        show_history(&handle);
+                    });
+                }
+                #[cfg(not(target_os = "linux"))]
+                {
+                    window.on_window_event(move |event| {
+                        if matches!(event, tauri::WindowEvent::Destroyed) {
+                            println!("SMOKE: popup destroyed; reopening");
+                            let app = handle.clone();
+                            std::thread::spawn(move || {
+                                // Let the native close finish before testing a fresh webview.
+                                std::thread::sleep(std::time::Duration::from_millis(100));
+                                show_history(&app);
+                            });
+                        }
+                    });
+                    window.close().map_err(|e| e.to_string())?;
+                }
                 return Ok(());
             }
         }
@@ -210,30 +224,65 @@ fn finish_smoke_test(app: AppHandle, success: bool) -> Result<(), String> {
     Ok(())
 }
 
+fn capture_target(handle: &AppHandle) {
+    let target = if handle.state::<Mode>().demo {
+        paste::Target::None
+    } else {
+        paste::remember()
+    };
+    #[cfg(target_os = "macos")]
+    let target = if target.available() {
+        target
+    } else {
+        *handle.state::<paste::Controller>().previous.lock().unwrap()
+    };
+    let controller = handle.state::<paste::Controller>();
+    *controller.target.lock().unwrap() = target;
+    controller
+        .popup_session
+        .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+}
+
+fn focus_popup(handle: &AppHandle, window: &tauri::WebviewWindow) {
+    let _ = window.show();
+    let _ = window.unminimize();
+    let _ = window.set_focus();
+    #[cfg(target_os = "linux")]
+    if !handle.state::<Mode>().demo && clipboard::needs_gnome_bridge() {
+        tauri::async_runtime::spawn_blocking(|| {
+            use glib::variant::ToVariant;
+            for _ in 0..20 {
+                let focused =
+                    paste::gnome_call("FocusPopup", Some(&(std::process::id(),).to_variant()))
+                        .ok()
+                        .and_then(|v| v.get::<(bool,)>())
+                        .is_some_and(|v| v.0);
+                if focused {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(15));
+            }
+        });
+    }
+    #[cfg(not(target_os = "linux"))]
+    let _ = handle;
+}
+
 fn show_history(app: &AppHandle) {
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
         if let Some(window) = handle.get_webview_window("history") {
+            if !window.is_visible().unwrap_or(false) {
+                capture_target(&handle);
+            }
             popup::prepare(&window);
-            let _ = window.show();
-            let _ = window.unminimize();
-            let _ = window.set_focus();
+            focus_popup(&handle, &window);
+            let _ = window.emit("popup-opened", ());
             return;
         }
         let demo = handle.state::<Mode>().demo;
-        let target = if demo {
-            paste::Target::None
-        } else {
-            paste::remember()
-        };
-        #[cfg(target_os = "macos")]
-        let target = if target.available() {
-            target
-        } else {
-            *handle.state::<paste::Controller>().previous.lock().unwrap()
-        };
-        *handle.state::<paste::Controller>().target.lock().unwrap() = target;
-        // Create only when opened. Closing destroys the webview, releasing its resources.
+        capture_target(&handle);
+        // macOS destroys closed webviews; Linux reuses one private view.
         let builder =
             WebviewWindowBuilder::new(&handle, "history", WebviewUrl::App("index.html".into()))
                 .title("FeatherClip")
@@ -251,6 +300,16 @@ fn show_history(app: &AppHandle) {
         let result = builder.build();
         if let Ok(window) = result {
             popup::prepare(&window);
+            #[cfg(target_os = "linux")]
+            {
+                let popup = window.clone();
+                window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = popup::dismiss(&popup);
+                    }
+                });
+            }
             if !demo && !handle.state::<Mode>().verify_paste {
                 let popup = window.clone();
                 let seen_focus =
@@ -263,31 +322,11 @@ fn show_history(app: &AppHandle) {
                     if matches!(event, tauri::WindowEvent::Focused(false))
                         && seen_focus.load(Ordering::Acquire)
                     {
-                        let _ = popup.close();
+                        let _ = popup::dismiss(&popup);
                     }
                 });
-                #[cfg(target_os = "linux")]
-                if clipboard::needs_gnome_bridge() {
-                    tauri::async_runtime::spawn_blocking(|| {
-                        use glib::variant::ToVariant;
-                        for _ in 0..20 {
-                            let focused = paste::gnome_call(
-                                "FocusPopup",
-                                Some(&(std::process::id(),).to_variant()),
-                            )
-                            .ok()
-                            .and_then(|v| v.get::<(bool,)>())
-                            .is_some_and(|v| v.0);
-                            if focused {
-                                break;
-                            }
-                            std::thread::sleep(std::time::Duration::from_millis(15));
-                        }
-                    });
-                }
             }
-            let _ = window.show();
-            let _ = window.set_focus();
+            focus_popup(&handle, &window);
         } else if let Err(error) = result {
             eprintln!("Couldn't open clipboard popup: {error}");
         }
@@ -295,7 +334,10 @@ fn show_history(app: &AppHandle) {
 }
 
 fn toggle_history(app: &AppHandle) {
-    if app.get_webview_window("history").is_some() {
+    if app
+        .get_webview_window("history")
+        .is_some_and(|w| w.is_visible().unwrap_or(false))
+    {
         close_window(app.clone());
     } else {
         show_history(app);

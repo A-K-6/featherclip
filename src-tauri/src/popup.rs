@@ -1,5 +1,15 @@
 use tauri::WebviewWindow;
 
+pub fn dismiss(window: &WebviewWindow) -> tauri::Result<()> {
+    // Tauri/WebKitGTK loses private URI handlers when an incognito webview is
+    // rebuilt. Reuse one private view on Linux; its hidden UI stops refreshing.
+    if cfg!(target_os = "linux") {
+        window.hide()
+    } else {
+        window.close()
+    }
+}
+
 /// Configure before showing: a utility popup belongs over the user's current
 /// Space, including another app's full-screen Space, and never joins window tabs.
 pub fn prepare(window: &WebviewWindow) {

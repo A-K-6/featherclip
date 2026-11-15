@@ -14,6 +14,7 @@ let state: Snapshot | undefined;
 let toastTimer: ReturnType<typeof setTimeout>;
 let refreshGeneration = 0;
 let selecting = false;
+let popupVisible = true;
 
 async function choose(id: number, copyOnly: boolean) {
   if (selecting) return;
@@ -22,7 +23,7 @@ async function choose(id: number, copyOnly: boolean) {
     const result = await invoke<string>("select_clip", { id, copyOnly });
     if (result === "permission") toast("Copied. Use ••• → Enable direct paste to allow Accessibility, then reopen from your destination app.");
     else if (result === "copied") toast("Copied.");
-    await refresh();
+    if (popupVisible) await refresh();
   } catch (error) { toast(String(error)); }
   finally { selecting = false; }
 }
@@ -36,7 +37,7 @@ function toast(message: string) {
 }
 
 async function perform(command: string, args?: Record<string, unknown>) {
-  try { await invoke(command, args); await refresh(); }
+  try { await invoke(command, args); if (popupVisible) await refresh(); }
   catch (error) { toast(String(error)); }
 }
 
@@ -135,7 +136,25 @@ document.addEventListener("keydown", (event) => {
   }
   if ((event.metaKey || event.ctrlKey) && event.key === "f") { event.preventDefault(); search.focus(); }
 });
-await listen("history-changed", refresh);
+await listen("history-changed", () => { if (popupVisible) void refresh(); });
+await listen("tauri://blur", () => {
+  popupVisible = false;
+  refreshGeneration++;
+  state = undefined;
+  clips.replaceChildren();
+  search.value = "";
+  element<HTMLDetailsElement>("settings").open = false;
+});
+await listen("tauri://focus", () => { popupVisible = true; void refresh(); });
+await listen("popup-opened", async () => {
+  popupVisible = true;
+  await refresh();
+  search.focus();
+  if (await invoke<number>("test_mode") === 2) {
+    const reopened = await invoke<Snapshot>("snapshot");
+    await invoke("finish_smoke_test", { success: reopened.paused && !reopened.items.length && !clips.children.length && !element("empty").hidden });
+  }
+});
 await refresh();
 search.focus();
 
