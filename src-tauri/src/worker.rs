@@ -25,8 +25,18 @@ pub struct Worker {
 
 impl Worker {
     pub fn start(app: AppHandle, demo: bool) -> Self {
+        let mut history = History::new();
+        if demo {
+            for text in [
+                "Hello from FeatherClip 👋",
+                "A tiny home for the things you copy.",
+                "سلام! این یک کلیپ آزمایشی است.",
+            ] {
+                history.insert(text.into());
+            }
+        }
         let shared = Arc::new(Mutex::new(Shared {
-            history: History::new(),
+            history,
             error: None,
             shortcut: false,
         }));
@@ -36,16 +46,6 @@ impl Worker {
             let mut clipboard = Clipboard::new(demo);
             // Establish a baseline before processing user actions.
             poll(&app, &worker_state, &mut clipboard);
-            if demo {
-                let mut state = worker_state.lock().unwrap();
-                for text in [
-                    "Hello from FeatherClip 👋",
-                    "A tiny home for the things you copy.",
-                    "سلام! این یک کلیپ آزمایشی است.",
-                ] {
-                    state.history.insert(text.into());
-                }
-            }
             loop {
                 match receiver.recv_timeout(Duration::from_millis(750)) {
                     Ok((action, reply)) => {

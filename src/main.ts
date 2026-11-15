@@ -6,7 +6,7 @@ type Clip = { id: number; text: string };
 type Snapshot = { items: Clip[]; paused: boolean; error: string | null; gnome: boolean; shortcut: boolean; autostart: boolean; mac: boolean };
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const search = element<HTMLInputElement>("search");
-const clips = element<HTMLDivElement>("clips");
+const clips = element<HTMLUListElement>("clips");
 const pause = element<HTMLButtonElement>("pause");
 const clear = element<HTMLButtonElement>("clear");
 const autostart = element<HTMLInputElement>("autostart");
@@ -33,31 +33,27 @@ function render() {
   const visible = state.items.filter((clip) => clip.text.toLocaleLowerCase().includes(query));
   const focusedId = (document.activeElement as HTMLElement)?.closest<HTMLButtonElement>(".clip")?.dataset.id;
   clips.replaceChildren();
-  visible.forEach((clip, index) => {
+  visible.forEach((clip) => {
+    const row = document.createElement("li");
     const button = document.createElement("button");
     button.type = "button";
     button.className = "clip";
     button.dataset.id = String(clip.id);
-    const number = document.createElement("span");
-    number.className = "clip-number";
-    number.textContent = String(index + 1).padStart(2, "0");
     const text = document.createElement("span");
     text.className = "clip-text";
     text.dir = "auto";
     // Clipboard content is untrusted text. Never interpret HTML or build links from it.
     text.textContent = clip.text.slice(0, 400);
-    const action = document.createElement("span");
-    action.className = "clip-copy";
-    action.textContent = "Copy ↗";
-    button.append(number, text, action);
+    button.append(text);
     button.addEventListener("click", async () => {
       try { await invoke("copy_clip", { id: clip.id }); toast("Copied. Ready to paste."); await refresh(); }
       catch (error) { toast(String(error)); }
     });
-    clips.append(button);
+    row.append(button);
+    clips.append(row);
     if (focusedId === String(clip.id)) button.focus({ preventScroll: true });
   });
-  element("count").textContent = `${state.items.length} / 30`;
+  element("count").textContent = `${state.items.length} / 30 clips`;
   element("activity").textContent = state.paused ? "Ⅱ Paused" : state.error ? "○ Needs attention" : "● Listening";
   element("activity").classList.toggle("paused", state.paused || !!state.error);
   pause.textContent = state.paused ? "Resume" : "Pause";
@@ -70,10 +66,11 @@ function render() {
   element("gnome").hidden = !state.gnome || !state.error;
   const empty = element("empty");
   empty.hidden = visible.length > 0;
-  empty.querySelector("h2")!.textContent = query ? "No matching clips." : state.paused ? "Take a little pause." : "Your next copy starts here.";
-  empty.querySelector("p")!.textContent = query ? "Try a different word or clear your search." : state.paused ? "Resume whenever you’re ready to copy again." : "Copy some text in any app. Your last 30 clips will appear here.";
-  element("shortcut").textContent = state.shortcut ? state.mac ? "⌘⇧V" : "Ctrl Alt V" : "Search";
-  element("paste-hint").textContent = `Select a clip, then ${state.mac ? "⌘V" : "Ctrl+V"} to paste.`;
+  empty.querySelector("h2")!.textContent = query ? "No matching clips" : state.paused ? "History paused" : "No clips yet";
+  empty.querySelector("p")!.textContent = query ? "Try another search." : state.paused ? "Resume to capture new copies." : "Copy some text to start.";
+  element("shortcut").hidden = !state.shortcut;
+  element("shortcut").textContent = state.mac ? "⌘⇧V" : "Ctrl Alt V";
+  element("paste-hint").textContent = `Click to copy · ${state.mac ? "⌘V" : "Ctrl+V"} to paste`;
 }
 
 async function refresh() {
@@ -83,7 +80,7 @@ async function refresh() {
     if (generation !== refreshGeneration) return;
     state = next;
     render();
-  } catch (error) { toast(String(error)); }
+  } catch (error) { if (generation === refreshGeneration) toast(String(error)); }
 }
 
 search.addEventListener("input", render);
@@ -93,13 +90,20 @@ autostart.addEventListener("change", () => perform("set_autostart", { enabled: a
 element("quit").addEventListener("click", () => perform("quit"));
 element("gnome").addEventListener("click", () => perform("enable_gnome"));
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") { void invoke("close_window"); }
-  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+  const settings = element<HTMLDetailsElement>("settings");
+  if (event.key === "Escape") {
+    if (settings.open) { settings.open = false; settings.querySelector("summary")?.focus(); }
+    else { void invoke("close_window"); }
+  }
+  if ((event.key === "ArrowDown" || event.key === "ArrowUp") &&
+      (document.activeElement === search || (document.activeElement as HTMLElement)?.classList.contains("clip"))) {
     const buttons = Array.from(clips.querySelectorAll<HTMLButtonElement>("button"));
     const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
     if (buttons.length) {
       event.preventDefault();
-      buttons[(index + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length].focus();
+      const next = index < 0 ? event.key === "ArrowDown" ? 0 : buttons.length - 1 :
+        (index + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length;
+      buttons[next].focus();
     }
   }
   if ((event.metaKey || event.ctrlKey) && event.key === "f") { event.preventDefault(); search.focus(); }

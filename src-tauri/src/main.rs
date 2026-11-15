@@ -136,8 +136,8 @@ fn show_history(app: &AppHandle) {
             WebviewWindowBuilder::new(&handle, "history", WebviewUrl::App("index.html".into()))
                 .title("FeatherClip")
                 .incognito(true)
-                .inner_size(460.0, 630.0)
-                .min_inner_size(350.0, 480.0)
+                .inner_size(360.0, 420.0)
+                .min_inner_size(300.0, 300.0)
                 .center()
                 .build()
         {
@@ -153,11 +153,7 @@ fn main() {
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             show_history(app)
         }))
-        .plugin(
-            tauri_plugin_autostart::Builder::new()
-                .macos_launcher(tauri_plugin_autostart::MacosLauncher::LaunchAgent)
-                .build(),
-        )
+        .plugin(tauri_plugin_autostart::Builder::new().build())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, _, event| {
