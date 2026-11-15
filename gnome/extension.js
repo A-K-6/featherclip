@@ -81,13 +81,19 @@ export default class FeatherClipBridge extends Extension {
                 this._keyboard ??= Clutter.get_default_backend().get_default_seat()
                     .create_virtual_device(Clutter.InputDeviceType.KEYBOARD_DEVICE);
                 const time = GLib.get_monotonic_time();
+                const id = `${target.get_gtk_application_id?.() ?? ''} ${target.get_wm_class() ?? ''}`.toLowerCase();
+                const terminal = ['gnome-terminal', 'gnome.terminal', 'gnome.console', 'kgx', 'ptyxis',
+                    'konsole', 'kitty', 'alacritty', 'xfce4-terminal', 'tilix', 'terminator', 'wezterm']
+                    .some(name => id.includes(name));
                 let sent = false;
                 try {
                     this._keyboard.notify_keyval(time, Clutter.KEY_Control_L, Clutter.KeyState.PRESSED);
+                    if (terminal) this._keyboard.notify_keyval(time, Clutter.KEY_Shift_L, Clutter.KeyState.PRESSED);
                     this._keyboard.notify_keyval(time, Clutter.KEY_v, Clutter.KeyState.PRESSED);
                     sent = true;
                 } finally {
                     this._keyboard.notify_keyval(time, Clutter.KEY_v, Clutter.KeyState.RELEASED);
+                    if (terminal) this._keyboard.notify_keyval(time, Clutter.KEY_Shift_L, Clutter.KeyState.RELEASED);
                     this._keyboard.notify_keyval(time, Clutter.KEY_Control_L, Clutter.KeyState.RELEASED);
                     invocation.return_value(new GLib.Variant('(b)', [sent]));
                 }

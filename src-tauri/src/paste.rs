@@ -242,12 +242,37 @@ mod x11 {
         };
         let control = code(0xffe3)?;
         let v = code(0x76)?;
-        for (kind, key) in [
-            (KEY_PRESS_EVENT, control),
-            (KEY_PRESS_EVENT, v),
-            (KEY_RELEASE_EVENT, v),
-            (KEY_RELEASE_EVENT, control),
-        ] {
+        let class = connection
+            .get_property(false, window, AtomEnum::WM_CLASS, AtomEnum::STRING, 0, 256)?
+            .reply()?;
+        let class = String::from_utf8_lossy(&class.value).to_lowercase();
+        let terminal = [
+            "gnome-terminal",
+            "gnome.terminal",
+            "gnome.console",
+            "kgx",
+            "ptyxis",
+            "konsole",
+            "kitty",
+            "alacritty",
+            "xfce4-terminal",
+            "tilix",
+            "terminator",
+            "wezterm",
+        ]
+        .iter()
+        .any(|name| class.contains(name));
+        let shift = if terminal { Some(code(0xffe1)?) } else { None };
+        let mut events = vec![(KEY_PRESS_EVENT, control)];
+        if let Some(shift) = shift {
+            events.push((KEY_PRESS_EVENT, shift));
+        }
+        events.extend([(KEY_PRESS_EVENT, v), (KEY_RELEASE_EVENT, v)]);
+        if let Some(shift) = shift {
+            events.push((KEY_RELEASE_EVENT, shift));
+        }
+        events.push((KEY_RELEASE_EVENT, control));
+        for (kind, key) in events {
             connection
                 .xtest_fake_input(kind, key, CURRENT_TIME, root, 0, 0, 0)?
                 .check()?;
