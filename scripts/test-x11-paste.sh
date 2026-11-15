@@ -11,4 +11,4 @@ python3 scripts/paste-fixture.py > "$task_logs/fixture.log" 2>&1 &
 task_fixture=$!
 trap 'kill "$task_fixture" "$task_wm" 2>/dev/null || true; rm -rf "$task_logs"' EXIT
 gdbus wait --session --timeout 20 io.github.AK6.FeatherClip.PasteFixture
-cargo test --locked --manifest-path src-tauri/Cargo.toml isolated_x11_paste_roundtrip -- --ignored --test-threads=1
+cargo test --locked --manifest-path linux/Cargo.toml isolated_x11_paste_roundtrip -- --ignored --test-threads=1

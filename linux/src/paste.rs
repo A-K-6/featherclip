@@ -1,203 +1,67 @@
-use std::sync::{atomic::AtomicBool, Mutex};
-
 #[derive(Clone, Copy, Debug, Default)]
 pub enum Target {
     #[default]
     None,
-    #[cfg(target_os = "macos")]
-    Mac { pid: i32, launched: Option<f64> },
-    #[cfg(target_os = "linux")]
     X11(u32),
-    #[cfg(target_os = "linux")]
     Gnome,
 }
-
-#[derive(Default)]
-pub struct Controller {
-    pub target: Mutex<Target>,
-    pub busy: AtomicBool,
-    pub popup_session: std::sync::atomic::AtomicU64,
-    #[cfg(target_os = "macos")]
-    pub previous: std::sync::Arc<Mutex<Target>>,
-}
-
 impl Target {
     pub fn available(self) -> bool {
         !matches!(self, Self::None)
     }
 }
-
-#[cfg(target_os = "macos")]
-pub fn watch_external_apps(controller: &Controller) {
-    let previous = std::sync::Arc::clone(&controller.previous);
-    *previous.lock().unwrap() = remember();
-    let callback = block2::RcBlock::new(
-        move |_: std::ptr::NonNull<objc2_foundation::NSNotification>| {
-            let target = remember();
-            if target.available() {
-                *previous.lock().unwrap() = target;
-            }
-        },
-    );
-    // The workspace owns this observer until process exit. No foreground polling.
-    unsafe {
-        objc2_app_kit::NSWorkspace::sharedWorkspace()
-            .notificationCenter()
-            .addObserverForName_object_queue_usingBlock(
-                Some(objc2_app_kit::NSWorkspaceDidActivateApplicationNotification),
-                None,
-                None,
-                &callback,
-            );
-    }
-}
-
-pub fn access_allowed() -> bool {
-    #[cfg(target_os = "macos")]
-    {
-        objc2_core_graphics::CGPreflightPostEventAccess()
-    }
-    #[cfg(target_os = "linux")]
-    {
-        true
-    }
-}
-
-pub fn request_access() -> bool {
-    #[cfg(target_os = "macos")]
-    {
-        objc2_core_graphics::CGRequestPostEventAccess()
-    }
-    #[cfg(target_os = "linux")]
-    {
-        true
-    }
-}
-
-/// Capture before the popup takes focus, and never use FeatherClip as its own target.
 pub fn remember() -> Target {
-    #[cfg(target_os = "macos")]
-    {
-        objc2_app_kit::NSWorkspace::sharedWorkspace()
-            .frontmostApplication()
-            .filter(|app| {
-                app.processIdentifier() > 0
-                    && app.processIdentifier() as u32 != std::process::id()
-                    && app
-                        .bundleIdentifier()
-                        .is_none_or(|id| id.to_string() != "io.github.AK6.FeatherClip")
-            })
-            .map(|app| Target::Mac {
-                pid: app.processIdentifier(),
-                launched: app.launchDate().map(|date| date.timeIntervalSince1970()),
-            })
-            .unwrap_or_default()
+    if crate::clipboard::needs_gnome_bridge() {
+        use glib::variant::ToVariant;
+        return if gnome_call("RememberTarget", Some(&(std::process::id(),).to_variant()))
+            .ok()
+            .and_then(|v| v.get::<(bool,)>())
+            .is_some_and(|v| v.0)
+        {
+            Target::Gnome
+        } else {
+            Target::None
+        };
     }
-    #[cfg(target_os = "linux")]
-    {
-        if crate::clipboard::needs_gnome_bridge() {
-            use glib::variant::ToVariant;
-            return if gnome_call("RememberTarget", Some(&(std::process::id(),).to_variant()))
-                .ok()
-                .and_then(|v| v.get::<(bool,)>())
-                .is_some_and(|v| v.0)
-            {
-                Target::Gnome
-            } else {
-                Target::None
-            };
-        }
-        if std::env::var_os("WAYLAND_DISPLAY").is_some() {
-            return Target::None;
-        }
-        x11::remember().map(Target::X11).unwrap_or_default()
+    if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+        return Target::None;
     }
+    x11::remember().map(Target::X11).unwrap_or_default()
 }
-
 pub fn perform(target: Target) -> Result<(), String> {
     match target {
-        Target::None => Err("Copied. Open the popup while your destination app is active, then choose the clip again.".into()),
-        #[cfg(target_os = "macos")]
-        Target::Mac { pid, launched } => mac_paste(pid, launched),
-        #[cfg(target_os = "linux")]
-        Target::X11(window) => x11::paste(window).map_err(|_| "Copied, but the original window couldn't receive Paste. Use Ctrl+V manually.".into()),
-        #[cfg(target_os = "linux")]
+        Target::None => Err("Copied. Reopen the popup from your destination app to paste.".into()),
+        Target::X11(window) => x11::paste(window)
+            .map_err(|_| "Copied, but the destination couldn't receive Paste. Use Ctrl+V.".into()),
         Target::Gnome => {
-            let sent = gnome_call("Paste", None)?.get::<(bool,)>().is_some_and(|v| v.0);
-            if sent { Ok(()) } else { Err("Copied, but the original window couldn't be restored. Use Ctrl+V manually.".into()) }
-        }
-    }
-}
-
-#[cfg(target_os = "macos")]
-fn mac_paste(pid: i32, launched: Option<f64>) -> Result<(), String> {
-    use objc2_app_kit::{NSApplicationActivationOptions, NSRunningApplication, NSWorkspace};
-    use objc2_core_graphics::{
-        CGEvent, CGEventFlags, CGEventSource, CGEventSourceStateID, CGEventTapLocation, CGEventType,
-    };
-    if !access_allowed() {
-        return Err("Copied. Allow FeatherClip in System Settings → Privacy & Security → Accessibility to enable direct paste.".into());
-    }
-    let app = NSRunningApplication::runningApplicationWithProcessIdentifier(pid)
-        .filter(|app| !app.isTerminated())
-        .filter(|app| {
-            launched.is_none_or(|time| {
-                app.launchDate()
-                    .is_some_and(|d| d.timeIntervalSince1970() == time)
-            })
-        })
-        .ok_or("Copied, but the original app has closed. Paste manually in another app.")?;
-    if !app.activateWithOptions(NSApplicationActivationOptions::empty()) {
-        return Err("Copied, but the original app couldn't be activated.".into());
-    }
-    // Wait for activation and verify the destination before using the native session stream.
-    for _ in 0..20 {
-        if NSWorkspace::sharedWorkspace()
-            .frontmostApplication()
-            .is_some_and(|a| a.processIdentifier() == pid)
-        {
-            std::thread::sleep(std::time::Duration::from_millis(60));
-            if !NSWorkspace::sharedWorkspace()
-                .frontmostApplication()
-                .is_some_and(|a| a.processIdentifier() == pid)
+            if gnome_call("Paste", None)?
+                .get::<(bool,)>()
+                .is_some_and(|v| v.0)
             {
-                return Err(
-                    "Copied. The destination changed before Paste, so no keys were sent.".into(),
-                );
+                Ok(())
+            } else {
+                Err("Copied. The original window couldn't regain focus.".into())
             }
-            let source = CGEventSource::new(CGEventSourceStateID::CombinedSessionState)
-                .ok_or("Couldn't create Paste source.")?;
-            let command = CGEventFlags::from_bits_retain(CGEventFlags::MaskCommand.0 | 8);
-            for (key, down, modifier, flags) in [
-                (55, true, true, command),
-                (9, true, false, command),
-                (9, false, false, command),
-                (55, false, true, CGEventFlags::empty()),
-            ] {
-                let event = CGEvent::new_keyboard_event(Some(&source), key, down)
-                    .ok_or("Couldn't create Paste event.")?;
-                if modifier {
-                    CGEvent::set_type(Some(&event), CGEventType::FlagsChanged);
-                }
-                CGEvent::set_flags(Some(&event), flags);
-                CGEvent::post(CGEventTapLocation::SessionEventTap, Some(&event));
-            }
-            return Ok(());
         }
-        std::thread::sleep(std::time::Duration::from_millis(15));
     }
-    Err("Copied. The original app didn't regain focus, so no Paste keys were sent.".into())
 }
-
-#[cfg(target_os = "linux")]
 pub fn gnome_call(method: &str, params: Option<&glib::Variant>) -> Result<glib::Variant, String> {
     gio::bus_get_sync(gio::BusType::Session, gio::Cancellable::NONE)
-        .and_then(|bus| bus.call_sync(Some("io.github.AK6.FeatherClip.Gnome"),
-            "/io/github/AK6/FeatherClip/Gnome", "io.github.AK6.FeatherClip.Gnome", method,
-            params, None, gio::DBusCallFlags::NONE, 2000, gio::Cancellable::NONE))
-        .map_err(|_| "The GNOME bridge couldn't complete Paste. Enable the updated bridge, then reopen history.".into())
+        .and_then(|b| {
+            b.call_sync(
+                Some("io.github.AK6.FeatherClip.Gnome"),
+                "/io/github/AK6/FeatherClip/Gnome",
+                "io.github.AK6.FeatherClip.Gnome",
+                method,
+                params,
+                None,
+                gio::DBusCallFlags::NONE,
+                2000,
+                gio::Cancellable::NONE,
+            )
+        })
+        .map_err(|_| "Enable the bundled GNOME bridge, then reopen the clipboard.".into())
 }
-
 #[cfg(target_os = "linux")]
 mod x11 {
     use x11rb::{

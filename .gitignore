@@ -1,6 +1,4 @@
 .DS_Store
-node_modules/
-dist/
+.build/
+build/
 target/
-src-tauri/gen/
-.vite/

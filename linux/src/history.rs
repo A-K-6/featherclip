@@ -1,17 +1,15 @@
 use crate::content::{Content, Kind, MAX_HISTORY};
-use serde::Serialize;
 
 pub const CAPACITY: usize = 30;
 #[cfg(test)]
 pub const MAX_ITEM_BYTES: usize = crate::content::MAX_TEXT;
 
-#[derive(Clone, Serialize, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Clip {
     pub id: u32,
     pub text: String,
     pub kind: Kind,
-    pub preview: Option<String>,
-    #[serde(skip)]
+    pub preview: Option<Vec<u8>>,
     pub content: Content,
 }
 

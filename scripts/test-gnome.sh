@@ -48,5 +48,5 @@ gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell --met
 python3 scripts/paste-fixture.py > "$task_runtime/fixture.log" 2>&1 &
 task_fixture_pid=$!
 gdbus wait --session --timeout 20 io.github.AK6.FeatherClip.PasteFixture
-cargo test --locked --manifest-path src-tauri/Cargo.toml isolated_gnome -- --ignored --test-threads=1
+cargo test --locked --manifest-path linux/Cargo.toml isolated_gnome -- --ignored --test-threads=1
 task_failed=0

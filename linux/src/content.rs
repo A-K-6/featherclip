@@ -1,4 +1,3 @@
-use serde::Serialize;
 use std::{
     hash::{Hash, Hasher},
     sync::Arc,
@@ -8,8 +7,7 @@ pub const MAX_TEXT: usize = 100 * 1024;
 pub const MAX_IMAGE: usize = 8 * 1024 * 1024;
 pub const MAX_HISTORY: usize = 24 * 1024 * 1024;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Kind {
     Text,
     Image,
@@ -96,8 +94,7 @@ impl Content {
         self.hash(&mut hash);
         hash.finish()
     }
-    pub fn preview(&self) -> Option<String> {
-        use base64::Engine;
+    pub fn preview(&self) -> Option<Vec<u8>> {
         let Self::Image { mime, bytes } = self else {
             return None;
         };
@@ -119,10 +116,7 @@ impl Content {
         if png.len() > 24 * 1024 {
             return None;
         }
-        Some(format!(
-            "data:image/png;base64,{}",
-            base64::engine::general_purpose::STANDARD.encode(png)
-        ))
+        Some(png)
     }
     #[cfg(test)]
     pub fn text(&self) -> Option<&str> {
