@@ -8,7 +8,7 @@ A compact, Win+V-style clipboard popup for **macOS and Ubuntu**, built with **Ta
 
 ### macOS · Apple Silicon and Intel · macOS 12+
 
-1. Download the `.dmg` from [Releases](https://github.com/A-K-6/featherclip/releases/latest).
+1. Download the **Apple Silicon (ARM64)** `.dmg` for M-series Macs, or the separate **Intel (x86_64)** `.dmg` for Intel Macs, from [Releases](https://github.com/A-K-6/featherclip/releases/latest).
 2. Open it and drag **FeatherClip** into **Applications**.
 3. Open FeatherClip. Its clipboard icon lives in your menu bar.
 
@@ -76,11 +76,12 @@ npm run tauri -- build --bundles deb       # Ubuntu
 npm run tauri -- build --bundles app,dmg   # macOS host architecture
 ```
 
-For a universal macOS release, install both Rust targets and build:
+macOS releases are separate builds so each download contains only its own architecture:
 
 ```sh
 rustup target add aarch64-apple-darwin x86_64-apple-darwin
-npm run tauri -- build --target universal-apple-darwin --bundles app,dmg
+npm run tauri -- build --target aarch64-apple-darwin --bundles app,dmg
+npm run tauri -- build --target x86_64-apple-darwin --bundles app,dmg
 ```
 
 `--demo` runs with synthetic clips and an in-memory clipboard. `--smoke-test` checks the real webview, IPC, Unicode search, copy selection, pause, and clear against that synthetic clipboard, then exits. Neither mode reads your real clipboard or enables launch at login. CI builds and exercises the app separately on macOS and Ubuntu.

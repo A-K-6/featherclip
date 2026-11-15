@@ -1,4 +1,5 @@
 """Two disposable GTK editors for isolated desktop integration tests only."""
+import os
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gio, GLib, Gtk
@@ -34,6 +35,17 @@ def call(_bus, _sender, _path, _interface, method, params, invocation):
         window = windows[label]
         window.present()
         editors[label].grab_focus()
+        # Wayland denies client-side activation without a real input token. In
+        # this disposable compositor, emulate a user choosing the fixture window.
+        if os.environ.get('WAYLAND_DISPLAY') and os.environ.get('FEATHERCLIP_ISOLATED_DISPLAY'):
+            code = "global.get_window_actors().find(a => a.meta_window.get_title() === " + \
+                repr(f'FeatherClip paste fixture {label}') + ").meta_window.activate(global.get_current_time());"
+            result = Gio.bus_get_sync(Gio.BusType.SESSION, None).call_sync(
+                'org.gnome.Shell', '/org/gnome/Shell', 'org.gnome.Shell', 'Eval',
+                GLib.Variant('(s)', (code,)), None, Gio.DBusCallFlags.NONE, 2000, None)
+            if not result.unpack()[0]:
+                invocation.return_dbus_error(NAME + '.FocusError', 'Could not select the disposable editor')
+                return
         attempts = [0]
         def wait_for_focus():
             attempts[0] += 1
