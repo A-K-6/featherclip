@@ -197,12 +197,18 @@ mod linux_tests {
             image::load_from_memory(&bytes).unwrap().into_rgba8(),
             expected
         );
-        let files = crate::content::file_uris(
-            b"file:///tmp/FeatherClip%20test.txt\nfile:///tmp/FeatherClip%20test.png",
-        )
-        .unwrap();
+        let directory =
+            std::env::temp_dir().join(format!("featherclip-files-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let uris = ["clipboard test.txt", "clipboard test.png"].map(|name| {
+            let path = directory.join(name);
+            std::fs::write(&path, b"synthetic clipboard fixture").unwrap();
+            url::Url::from_file_path(&path).unwrap().to_string()
+        });
+        let files = crate::content::file_uris(uris.join("\n").as_bytes()).unwrap();
         clipboard.write(files.clone()).unwrap();
         assert_eq!(clipboard.read().unwrap(), Some(files));
+        std::fs::remove_dir_all(directory).unwrap();
     }
 }
 

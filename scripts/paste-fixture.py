@@ -53,6 +53,12 @@ def call(_bus, _sender, _path, _interface, method, params, invocation):
                 invocation.return_value(GLib.Variant('()', ()))
                 return False
             if attempts[0] >= 100:
+                if os.environ.get('WAYLAND_DISPLAY'):
+                    diagnostic = "JSON.stringify({focus:global.display.focus_window?.get_title(),overview:Main.overview.visible,modal:Main.modalCount,locked:Main.screenShield.locked,windows:global.get_window_actors().map(a=>({title:a.meta_window.get_title(),mapped:a.is_mapped(),visible:a.meta_window.showing_on_its_workspace()}))})"
+                    state = Gio.bus_get_sync(Gio.BusType.SESSION, None).call_sync(
+                        'org.gnome.Shell', '/org/gnome/Shell', 'org.gnome.Shell', 'Eval',
+                        GLib.Variant('(s)', (diagnostic,)), None, Gio.DBusCallFlags.NONE, 2000, None)
+                    print('Isolated focus diagnostic:', state.unpack(), flush=True)
                 invocation.return_dbus_error(NAME + '.FocusTimeout', 'Disposable editor did not regain focus')
                 return False
             return True
