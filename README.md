@@ -91,7 +91,7 @@ Turn **Start at login** off and quit first. On macOS, delete FeatherClip from Ap
 
 ```sh
 gnome-extensions disable featherclip@aeen.github  # if enabled
-sudo apt remove featherclip
+sudo apt remove feather-clip
 ```
 
 There is no saved clipboard history to remove. The optional autostart entry is the only setting the app writes.
