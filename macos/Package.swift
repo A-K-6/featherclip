@@ -7,6 +7,6 @@ let package = Package(
     targets: [
         .target(name: "FeatherClipCore"),
         .executableTarget(name: "FeatherClip", dependencies: ["FeatherClipCore"]),
-        .testTarget(name: "FeatherClipCoreTests", dependencies: ["FeatherClipCore"])
+        .testTarget(name: "FeatherClipCoreTests", dependencies: ["FeatherClipCore"]),
     ], swiftLanguageVersions: [.v5]
 )

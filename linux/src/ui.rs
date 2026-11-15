@@ -471,7 +471,17 @@ fn autostart_path() -> Option<std::path::PathBuf> {
 fn set_autostart(enabled: bool) -> Result<(), String> {
     let path = autostart_path().ok_or("Couldn't find your configuration folder.")?;
     if enabled {
-        std::fs::create_dir_all(path.parent().unwrap()).and_then(|_|std::fs::write(&path,"[Desktop Entry]\nType=Application\nName=FeatherClip\nExec=/usr/bin/featherclip --background\nIcon=featherclip\nX-GNOME-Autostart-enabled=true\n")).map_err(|_|"Couldn't save the login item.".to_string())
+        let entry = concat!(
+            "[Desktop Entry]\n",
+            "Type=Application\n",
+            "Name=FeatherClip\n",
+            "Exec=/usr/bin/featherclip --background\n",
+            "Icon=featherclip\n",
+            "X-GNOME-Autostart-enabled=true\n",
+        );
+        std::fs::create_dir_all(path.parent().unwrap())
+            .and_then(|_| std::fs::write(&path, entry))
+            .map_err(|_| "Couldn't save the login item.".to_string())
     } else {
         match std::fs::remove_file(path) {
             Ok(()) => Ok(()),
@@ -529,12 +539,33 @@ fn start_smoke(app: &adw::Application) {
     glib::timeout_add_local(std::time::Duration::from_millis(150), move || {
         attempts.set(attempts.get() + 1);
         assert!(attempts.get() < 100, "native GTK smoke timed out");
-        UI.with(|slot| {let slot=slot.borrow();let ui=slot.as_ref().unwrap();
+        UI.with(|slot| {
+            let slot = slot.borrow();
+            let ui = slot.as_ref().unwrap();
             match phase.get() {
-                0 if ui.ids.borrow().len()==5 => {assert!(ui.window.is_visible());ui.search.set_text("سلام");ui.refresh_force();assert_eq!(ui.ids.borrow().len(),1);ui.choose(true);ui.action(Action::TogglePause);phase.set(1);}
-                1 if ui.worker.shared.lock().unwrap().history.paused => {ui.action(Action::Clear);phase.set(2);}
-                2 if ui.worker.shared.lock().unwrap().history.items.is_empty() => {ui.hide();ui.show();assert!(ui.window.is_visible());assert!(ui.ids.borrow().is_empty());println!("SMOKE PASS: native GTK/libadwaita, Unicode search, copy, pause, clear, popup");phase.set(3);app.quit();}
-                _=>{}
+                0 if ui.ids.borrow().len() == 5 => {
+                    assert!(ui.window.is_visible());
+                    ui.search.set_text("سلام");
+                    ui.refresh_force();
+                    assert_eq!(ui.ids.borrow().len(), 1);
+                    ui.choose(true);
+                    ui.action(Action::TogglePause);
+                    phase.set(1);
+                }
+                1 if ui.worker.shared.lock().unwrap().history.paused => {
+                    ui.action(Action::Clear);
+                    phase.set(2);
+                }
+                2 if ui.worker.shared.lock().unwrap().history.items.is_empty() => {
+                    ui.hide();
+                    ui.show();
+                    assert!(ui.window.is_visible());
+                    assert!(ui.ids.borrow().is_empty());
+                    println!("SMOKE PASS: native GTK/libadwaita, Unicode search, copy, pause, clear, popup");
+                    phase.set(3);
+                    app.quit();
+                }
+                _ => {}
             }
         });
         if phase.get() == 3 {

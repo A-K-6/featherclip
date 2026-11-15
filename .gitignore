@@ -2,3 +2,6 @@
 .build/
 build/
 target/
+.swiftpm/
+__pycache__/
+*.py[cod]

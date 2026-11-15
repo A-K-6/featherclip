@@ -50,7 +50,7 @@ Clipboard text can contain secrets. Pause before copying sensitive information. 
 
 ### macOS
 
-Install Xcode with the macOS 26 SDK or newer (for the glass API). No external Swift packages are required.
+Install Xcode with the macOS 26 SDK or newer (for the glass API), plus Python 3 for the build metadata check. No external Swift packages are required.
 
 ```sh
 swift test --package-path macos
@@ -66,7 +66,7 @@ Deployment targets macOS 13; availability checks select the older system materia
 Install Rust 1.90+ and native dependencies:
 
 ```sh
-sudo apt install build-essential pkg-config libgtk-4-dev libadwaita-1-dev
+sudo apt install build-essential pkg-config python3 libgtk-4-dev libadwaita-1-dev
 cargo test --locked --manifest-path linux/Cargo.toml
 cargo clippy --locked --manifest-path linux/Cargo.toml --all-targets -- -D warnings
 bash scripts/build-linux.sh
@@ -89,6 +89,6 @@ There is no saved clipboard history. The optional Linux autostart file is `~/.co
 
 ## Contributing
 
-Small improvements are welcome. Include OS and desktop/session details with bug reports; omit private clipboard contents. Preserve the simple UI, bounded memory and local-only defaults. Release downloads include SHA-256 checksums.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the source layout, checks and release process, and [CHANGELOG.md](CHANGELOG.md) for release history. Small improvements are welcome. Include OS and desktop/session details with bug reports; omit private clipboard contents. Preserve the simple UI, bounded memory and local-only defaults.
 
 [MIT licensed](LICENSE). Aeen Karimian · `aeenakrimian@gmail.com`.

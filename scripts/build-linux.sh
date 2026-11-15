@@ -1,9 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
-cd "$(dirname "$0")/.."
+# shellcheck source=scripts/common.sh
+source "$(dirname "$0")/common.sh"
+cd "$task_repo_root"
+if [[ ${1:-} == --help ]]; then echo 'Usage: bash scripts/build-linux.sh'; exit 0; fi
+if (( $# != 0 )); then echo 'Usage: bash scripts/build-linux.sh' >&2; exit 2; fi
+[[ $(uname -s) == Linux ]] || { echo 'Build the Ubuntu installer on Linux.' >&2; exit 1; }
+[[ $(dpkg --print-architecture) == amd64 ]] || { echo 'The Ubuntu installer targets amd64. Build it on an amd64 host.' >&2; exit 1; }
+python3 scripts/check-repo.py
 cargo build --locked --release --manifest-path linux/Cargo.toml
-task_root=build/linux-amd64
-task_package="$task_root/package"
+task_root="$task_repo_root/build/linux-amd64"
+mkdir -p "$task_root"
+task_stage=$(mktemp -d "$task_root/stage.XXXXXX")
+trap 'rm -r -- "$task_stage"' EXIT
+task_package="$task_stage/package"
 mkdir -p "$task_package/DEBIAN" "$task_package/usr/bin" "$task_package/usr/share/applications" "$task_package/usr/share/icons/hicolor/scalable/apps" "$task_package/usr/share/gnome-shell/extensions/featherclip@aeen.github" "$task_package/usr/share/doc/feather-clip"
 install -m755 linux/target/release/featherclip "$task_package/usr/bin/featherclip"
 cp assets/featherclip.svg "$task_package/usr/share/icons/hicolor/scalable/apps/featherclip.svg"
@@ -20,9 +30,9 @@ Terminal=false
 Categories=Utility;
 StartupWMClass=io.github.AK6.FeatherClip
 DESKTOP
-cat > "$task_package/DEBIAN/control" <<'CONTROL'
+cat > "$task_package/DEBIAN/control" <<CONTROL
 Package: feather-clip
-Version: 2.0.0
+Version: $task_version
 Section: utils
 Priority: optional
 Architecture: amd64
@@ -33,5 +43,8 @@ Description: Tiny native clipboard history for Ubuntu
  Native GTK4 and libadwaita popup for text, images and local file references.
  History stays in memory. Includes a GNOME Shell Wayland integration.
 CONTROL
-if ldd "$task_package/usr/bin/featherclip" | grep -Ei 'webkit|javascriptcore'; then echo 'Unexpected web runtime' >&2; exit 1; fi
-dpkg-deb --build --root-owner-group "$task_package" "$task_root/FeatherClip_2.0.0_amd64.deb"
+task_links=$(ldd "$task_package/usr/bin/featherclip")
+if grep -Eiq 'webkit|javascriptcore|not found' <<< "$task_links"; then
+  echo 'Missing system library or unexpected web runtime.' >&2; exit 1
+fi
+dpkg-deb --build --root-owner-group "$task_package" "$task_root/FeatherClip_${task_version}_amd64.deb"
