@@ -13,8 +13,6 @@ on:
       - assets/featherclip.svg
       - scripts/build-site.py
       - .github/workflows/pages.yml
-  release:
-    types: [published]
   workflow_dispatch:
 permissions:
   contents: read

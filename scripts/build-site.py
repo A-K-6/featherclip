@@ -122,7 +122,7 @@ def build(release_json, base_url):
                 "ROOT": prefix,
                 "TITLE": html.escape(title),
                 "DESCRIPTION": html.escape(description, quote=True),
-                "CANONICAL": html.escape(base_url.rstrip("/") + "/" + ("" if name == "index.html" else name), quote=True),
+                "CANONICAL": html.escape(base_url.rstrip("/") + "/" + name.removesuffix("index.html"), quote=True),
                 "OG_TYPE": "article" if name == "blog/going-native.html" else "website",
             })
             page_values["CONTENT"] = render((ROOT / "site/pages" / name).read_text(), page_values)
