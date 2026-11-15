@@ -8,6 +8,8 @@ import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 const NAME = 'io.github.AK6.FeatherClip.Gnome';
 const PATH = '/io/github/AK6/FeatherClip/Gnome';
+// Mutter's introspection name differs across supported GNOME versions.
+const CLIPBOARD_SELECTION = Meta.SelectionType.SELECTION_CLIPBOARD ?? Meta.SelectionType.CLIPBOARD;
 const XML = `<node><interface name="${NAME}">
   <method name="Revision"><arg type="u" direction="out"/></method>
   <method name="ReadContent"><arg type="s" direction="out"/><arg type="ay" direction="out"/></method>
@@ -25,7 +27,7 @@ export default class FeatherClipBridge extends Extension {
         this._revision = 0;
         this._selection = global.display.get_selection();
         this._changed = this._selection.connect('owner-changed', (_selection, type) => {
-            if (type === Meta.SelectionType.CLIPBOARD) this._revision = (this._revision + 1) >>> 0;
+            if (type === CLIPBOARD_SELECTION) this._revision = (this._revision + 1) >>> 0;
         });
         this._object = Gio.DBusExportedObject.wrapJSObject(XML, this);
         this._owner = Gio.bus_own_name(Gio.BusType.SESSION, NAME, Gio.BusNameOwnerFlags.NONE,
@@ -54,7 +56,7 @@ export default class FeatherClipBridge extends Extension {
             return GLib.SOURCE_REMOVE;
         });
         // Bound the transfer inside Shell; St.get_content() uses an unlimited transfer.
-        this._selection.transfer_async(Meta.SelectionType.CLIPBOARD, type, limit + 1, stream, cancel, (selection, result) => {
+        this._selection.transfer_async(CLIPBOARD_SELECTION, type, limit + 1, stream, cancel, (selection, result) => {
             if (timeout) GLib.source_remove(timeout);
             try {
                 selection.transfer_finish(result);
