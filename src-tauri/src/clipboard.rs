@@ -192,6 +192,17 @@ mod linux_tests {
     use super::*;
 
     #[test]
+    #[ignore = "Requires the bridge in an isolated headless GNOME session"]
+    fn isolated_gnome_bridge_roundtrip() {
+        assert!(std::env::var("FEATHERCLIP_ISOLATED_DISPLAY").is_ok());
+        assert!(needs_gnome_bridge());
+        let mut clipboard = Clipboard::new(false).unwrap();
+        let text = "FeatherClip GNOME Wayland integration — سلام 👋\nnext line";
+        clipboard.write(text.into()).unwrap();
+        assert_eq!(clipboard.read().unwrap().as_deref(), Some(text));
+    }
+
+    #[test]
     #[ignore = "Run only under an isolated Xvfb display, never on a user's desktop"]
     fn isolated_x11_clipboard_roundtrip() {
         assert!(std::env::var("FEATHERCLIP_ISOLATED_DISPLAY").is_ok());

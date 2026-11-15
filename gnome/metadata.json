@@ -2,7 +2,7 @@
   "uuid": "featherclip@aeen.github",
   "name": "FeatherClip GNOME Bridge",
   "description": "Allows the local FeatherClip app to read and write the GNOME Wayland clipboard. No history, polling, storage, or networking in this extension.",
-  "shell-version": ["45", "46", "47", "48", "49", "50"],
+  "shell-version": ["45", "46", "47", "48", "49", "50", "51"],
   "url": "https://github.com/A-K-6/featherclip",
   "version": 1
 }

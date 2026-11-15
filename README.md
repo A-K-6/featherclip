@@ -24,7 +24,7 @@ sudo apt install ./FeatherClip_1.0.0_amd64.deb
 
 Open **FeatherClip** from your applications menu. `apt` installs the required system libraries. The package uses your system WebKit instead of bundling a browser.
 
-**Default Ubuntu/GNOME with Wayland:** the package includes the small **FeatherClip GNOME Bridge** extension. Click **Enable GNOME clipboard support** inside FeatherClip. On a fresh install, GNOME may require **one logout/login** before discovering the extension; then click Enable again. It reads/writes the local clipboard only when the running app requests it. It stores no history and makes no network connections. GNOME 45–50 is supported by the bridge; no extension is needed in an X11 session.
+**Default Ubuntu/GNOME with Wayland:** the package includes the small **FeatherClip GNOME Bridge** extension. Click **Enable GNOME clipboard support** inside FeatherClip. On a fresh install, GNOME may require **one logout/login** before discovering the extension; then click Enable again. It reads/writes the local clipboard only when the running app requests it. It stores no history and makes no network connections. The bridge declares compatibility with GNOME 45–51; no extension is needed in an X11 session.
 
 Other Linux desktops are best effort: X11 and Wayland compositors supporting the data-control protocol use the native clipboard library. GNOME Wayland requires the bundled bridge; an XWayland-only workaround is not used. The `.deb` is the supported Linux installer for this release.
 

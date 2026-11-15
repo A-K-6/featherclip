@@ -61,6 +61,12 @@ jobs:
       - name: Linux app smoke check
         if: runner.os == 'Linux'
         run: dbus-run-session -- xvfb-run -a env WEBKIT_DISABLE_COMPOSITING_MODE=1 src-tauri/target/x86_64-unknown-linux-gnu/release/featherclip --smoke-test
+      - name: Install headless GNOME
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y gnome-shell dbus-x11
+      - name: GNOME Wayland bridge integration
+        if: runner.os == 'Linux'
+        run: dbus-run-session -- bash scripts/test-gnome.sh
       - uses: actions/upload-artifact@v4
         with:
           name: featherclip-${{ matrix.target }}
