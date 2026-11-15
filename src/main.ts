@@ -118,6 +118,16 @@ if (await invoke<boolean>("test_mode")) {
     const renderedCount = () => clips.children.length;
     const initial = await invoke<Snapshot>("snapshot");
     if (initial.items.length !== 3 || renderedCount() !== 3) throw new Error("history did not render");
+    search.focus();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp" }));
+    if ((document.activeElement as HTMLElement)?.dataset.id !== String(initial.items[2].id)) throw new Error("keyboard navigation failed");
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
+    if ((document.activeElement as HTMLElement)?.dataset.id !== String(initial.items[0].id)) throw new Error("keyboard wrap failed");
+    const settings = element<HTMLDetailsElement>("settings");
+    settings.open = true;
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    if (settings.open) throw new Error("options did not dismiss");
+    if (document.documentElement.scrollWidth > window.innerWidth || document.documentElement.scrollHeight > window.innerHeight) throw new Error("panel overflow");
     search.value = "سلام";
     render();
     if (renderedCount() !== 1) throw new Error("Unicode search failed");
