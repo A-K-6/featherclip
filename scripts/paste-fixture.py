@@ -38,7 +38,7 @@ def call(_bus, _sender, _path, _interface, method, params, invocation):
         # Wayland denies client-side activation without a real input token. In
         # this disposable compositor, emulate a user choosing the fixture window.
         if os.environ.get('WAYLAND_DISPLAY') and os.environ.get('FEATHERCLIP_ISOLATED_DISPLAY'):
-            code = "global.get_window_actors().find(a => a.meta_window.get_title() === " + \
+            code = "Main.overview.hide(); global.get_window_actors().find(a => a.meta_window.get_title() === " + \
                 repr(f'FeatherClip paste fixture {label}') + ").meta_window.activate(global.get_current_time());"
             result = Gio.bus_get_sync(Gio.BusType.SESSION, None).call_sync(
                 'org.gnome.Shell', '/org/gnome/Shell', 'org.gnome.Shell', 'Eval',
@@ -54,7 +54,7 @@ def call(_bus, _sender, _path, _interface, method, params, invocation):
                 return False
             if attempts[0] >= 100:
                 if os.environ.get('WAYLAND_DISPLAY'):
-                    diagnostic = "JSON.stringify({focus:global.display.focus_window?.get_title(),overview:Main.overview.visible,modal:Main.modalCount,locked:Main.screenShield.locked,windows:global.get_window_actors().map(a=>({title:a.meta_window.get_title(),mapped:a.is_mapped(),visible:a.meta_window.showing_on_its_workspace()}))})"
+                    diagnostic = "JSON.stringify({focus:global.display.focus_window?.get_title(),overview:Main.overview.visible,modal:Main.modalCount,locked:Main.screenShield?.locked,mode:Main.sessionMode.currentMode,windows:global.get_window_actors().map(a=>({title:a.meta_window.get_title(),mapped:a.is_mapped(),visible:a.meta_window.showing_on_its_workspace()}))})"
                     state = Gio.bus_get_sync(Gio.BusType.SESSION, None).call_sync(
                         'org.gnome.Shell', '/org/gnome/Shell', 'org.gnome.Shell', 'Eval',
                         GLib.Variant('(s)', (diagnostic,)), None, Gio.DBusCallFlags.NONE, 2000, None)

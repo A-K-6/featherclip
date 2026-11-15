@@ -60,9 +60,13 @@ export default class FeatherClipBridge extends Extension {
                 selection.transfer_finish(result);
                 stream.close(null);
                 const bytes = stream.steal_as_bytes();
+                if (GLib.getenv('FEATHERCLIP_ISOLATED_DISPLAY')) console.log(`FeatherClip transfer test: ${type}, bytes=${bytes.get_size()}, revision=${revision}/${this._revision}`);
                 if (bytes.get_size() > limit || this._revision !== revision) reply('', []);
                 else reply(type.startsWith('image/') ? type : ['text/uri-list', 'x-special/gnome-copied-files'].includes(type) ? 'text/uri-list' : 'text/plain', bytes.get_data());
-            } catch { reply('', []); }
+            } catch (error) {
+                if (GLib.getenv('FEATHERCLIP_ISOLATED_DISPLAY')) console.log(`FeatherClip transfer test failed: ${error}`);
+                reply('', []);
+            }
         });
     }
 

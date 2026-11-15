@@ -34,6 +34,14 @@ cleanup() {
 trap cleanup EXIT
 task_failed=1
 gdbus wait --session --timeout 45 io.github.AK6.FeatherClip.Gnome
+# The extension can export D-Bus before Shell finishes starting its desktop.
+task_ready=''
+for task_attempt in {1..100}; do
+  task_ready=$(gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell --method org.gnome.Shell.Eval 'Main.layoutManager._startingUp === false')
+  if [[ $task_ready == "(true, 'true')" ]]; then break; fi
+  sleep 0.1
+done
+if [[ $task_ready != "(true, 'true')" ]]; then echo 'GNOME desktop did not finish starting' >&2; exit 1; fi
 # The headless session starts in Overview; mimic returning to a normal desktop.
 # Unsafe Eval exists only inside this disposable test compositor.
 gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell --method org.gnome.Shell.Eval 'global._clipTestKeyboard = imports.gi.Clutter.get_default_backend().get_default_seat().create_virtual_device(imports.gi.Clutter.InputDeviceType.KEYBOARD_DEVICE); Main.overview.hide();'

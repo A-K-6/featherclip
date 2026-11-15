@@ -86,7 +86,15 @@ async fn select_clip(app: AppHandle, id: u32, copy_only: bool) -> Result<&'stati
     if !paste::access_allowed() {
         return Ok("permission");
     }
-    let target = std::mem::take(&mut *controller.target.lock().unwrap());
+    let target = {
+        let mut target = controller.target.lock().unwrap();
+        if controller.popup_session.load(Ordering::Acquire) != session {
+            return Err(
+                "Copied. The popup was reopened before Paste; choose the clip again.".into(),
+            );
+        }
+        std::mem::take(&mut *target)
+    };
     tauri::async_runtime::spawn_blocking(move || paste::perform(target))
         .await
         .map_err(|_| "Copied, but Paste couldn't finish. Paste manually.".to_string())??;
@@ -237,10 +245,11 @@ fn capture_target(handle: &AppHandle) {
         *handle.state::<paste::Controller>().previous.lock().unwrap()
     };
     let controller = handle.state::<paste::Controller>();
-    *controller.target.lock().unwrap() = target;
+    let mut captured = controller.target.lock().unwrap();
     controller
         .popup_session
         .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+    *captured = target;
 }
 
 fn focus_popup(handle: &AppHandle, window: &tauri::WebviewWindow) {
