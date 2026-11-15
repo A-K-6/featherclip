@@ -37,8 +37,11 @@ def call(_bus, _sender, _path, _interface, method, params, invocation):
         attempts = [0]
         def wait_for_focus():
             attempts[0] += 1
-            if window.get_property('is-active') or attempts[0] >= 100:
+            if window.get_property('is-active'):
                 invocation.return_value(GLib.Variant('()', ()))
+                return False
+            if attempts[0] >= 100:
+                invocation.return_dbus_error(NAME + '.FocusTimeout', 'Disposable editor did not regain focus')
                 return False
             return True
         GLib.timeout_add(20, wait_for_focus)

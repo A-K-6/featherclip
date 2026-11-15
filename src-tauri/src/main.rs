@@ -199,11 +199,38 @@ fn show_history(app: &AppHandle) {
         {
             if !demo {
                 let popup = window.clone();
+                let seen_focus =
+                    std::sync::atomic::AtomicBool::new(window.is_focused().unwrap_or(false));
                 window.on_window_event(move |event| {
-                    if let tauri::WindowEvent::Focused(false) = event {
+                    use std::sync::atomic::Ordering;
+                    if let tauri::WindowEvent::Focused(true) = event {
+                        seen_focus.store(true, Ordering::Release);
+                    }
+                    if matches!(event, tauri::WindowEvent::Focused(false))
+                        && seen_focus.load(Ordering::Acquire)
+                    {
                         let _ = popup.close();
                     }
                 });
+                #[cfg(target_os = "linux")]
+                if clipboard::needs_gnome_bridge() {
+                    tauri::async_runtime::spawn_blocking(|| {
+                        use glib::variant::ToVariant;
+                        for _ in 0..20 {
+                            let focused = paste::gnome_call(
+                                "FocusPopup",
+                                Some(&(std::process::id(),).to_variant()),
+                            )
+                            .ok()
+                            .and_then(|v| v.get::<(bool,)>())
+                            .is_some_and(|v| v.0);
+                            if focused {
+                                break;
+                            }
+                            std::thread::sleep(std::time::Duration::from_millis(15));
+                        }
+                    });
+                }
             }
             let _ = window.set_focus();
         }

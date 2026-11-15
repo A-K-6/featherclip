@@ -11,6 +11,7 @@ const XML = `<node><interface name="${NAME}">
   <method name="ReadText"><arg type="s" direction="out"/></method>
   <method name="WriteText"><arg type="s" direction="in"/></method>
   <method name="RememberTarget"><arg type="u" direction="in"/><arg type="b" direction="out"/></method>
+  <method name="FocusPopup"><arg type="u" direction="in"/><arg type="b" direction="out"/></method>
   <method name="Paste"><arg type="b" direction="out"/></method>
 </interface></node>`;
 
@@ -52,6 +53,14 @@ export default class FeatherClipBridge extends Extension {
         return !!this._target;
     }
 
+    FocusPopup(ownPid) {
+        const window = global.get_window_actors().map(actor => actor.meta_window)
+            .find(window => window.get_pid() === ownPid);
+        if (!window) return false;
+        window.activate(global.get_current_time());
+        return true;
+    }
+
     PasteAsync(_params, invocation) {
         const target = this._target;
         if (target && this._targetClosed) target.disconnect(this._targetClosed);
@@ -72,11 +81,16 @@ export default class FeatherClipBridge extends Extension {
                 this._keyboard ??= Clutter.get_default_backend().get_default_seat()
                     .create_virtual_device(Clutter.InputDeviceType.KEYBOARD_DEVICE);
                 const time = GLib.get_monotonic_time();
-                this._keyboard.notify_keyval(time, Clutter.KEY_Control_L, Clutter.KeyState.PRESSED);
-                this._keyboard.notify_keyval(time, Clutter.KEY_v, Clutter.KeyState.PRESSED);
-                this._keyboard.notify_keyval(time, Clutter.KEY_v, Clutter.KeyState.RELEASED);
-                this._keyboard.notify_keyval(time, Clutter.KEY_Control_L, Clutter.KeyState.RELEASED);
-                invocation.return_value(new GLib.Variant('(b)', [true]));
+                let sent = false;
+                try {
+                    this._keyboard.notify_keyval(time, Clutter.KEY_Control_L, Clutter.KeyState.PRESSED);
+                    this._keyboard.notify_keyval(time, Clutter.KEY_v, Clutter.KeyState.PRESSED);
+                    sent = true;
+                } finally {
+                    this._keyboard.notify_keyval(time, Clutter.KEY_v, Clutter.KeyState.RELEASED);
+                    this._keyboard.notify_keyval(time, Clutter.KEY_Control_L, Clutter.KeyState.RELEASED);
+                    invocation.return_value(new GLib.Variant('(b)', [sent]));
+                }
             }
             this._pasteTimer = 0;
             return GLib.SOURCE_REMOVE;
