@@ -9,6 +9,7 @@ Keep FeatherClip small, native and local. Preserve memory-only history, bounded 
 | `macos/` | Swift/AppKit app, clipboard core and native pasteboard tests |
 | `linux/` | Rust/GTK4/libadwaita app, clipboard worker and paste integrations |
 | `gnome/` | Small GNOME Shell bridge for Wayland clipboard access and paste |
+| `site/` | Static GitHub Pages website, blog and setup guide |
 | `assets/` | App icons and the synthetic demo image |
 | `scripts/` | Packaging, metadata checks and isolated desktop fixtures |
 | `VERSION` | Shared installer version, checked against Cargo.toml and Cargo.lock |
@@ -62,3 +63,17 @@ git push origin vX.Y.Z
 A version tag runs the full Mac ARM64, Mac Intel and Ubuntu checks again. After they all pass, CI publishes those three installers, a SHA256SUMS file, and the authored changelog section as the GitHub release. A tag that disagrees with `VERSION` fails. Existing releases are not overwritten; inspect a partial release before retrying a failed publishing job.
 
 The scripts generate fresh staging folders under ignored `build/` directories and remove those temporary folders when done. Swift and Cargo caches stay in their usual ignored directories. Mac signing is currently ad-hoc; a different binary can require the owner to refresh Accessibility permission. Local builds do not replace an installed app automatically.
+
+## Website and blog
+
+The GitHub Pages site uses static HTML/CSS and Python's standard library to assemble its shared layout. It has no browser JavaScript or frontend package dependencies. Edit `site/pages/`, `site/layout.html` and `site/assets/style.css`; add new page metadata to `PAGES` in `scripts/build-site.py`.
+
+```sh
+gh api repos/A-K-6/featherclip/releases/latest > /tmp/featherclip-site-release.json
+python3 scripts/build-site.py --release-json /tmp/featherclip-site-release.json
+python3 -m http.server 8765 --directory build/site --bind 127.0.0.1
+```
+
+Open `http://127.0.0.1:8765`. The build checks local links, assets and fragments, and verifies download links against the latest published release. Unreleased source versions cannot create nonexistent download links. Blog posts keep their original dates and release references.
+
+Website changes on `main` deploy automatically, and pull requests build without deploying. Release publishing dispatches the website workflow after the installers are published. To refresh manually, run `gh workflow run pages.yml --ref main`. Pages settings use GitHub Actions; no custom domain is required. The website is public, like the source repository.

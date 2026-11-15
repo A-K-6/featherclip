@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Add a GitHub Pages download site, project blog, and setup/troubleshooting guide.
+
 - Centralize installer versions and validate release metadata.
 - Standardize native source formatting and document contributing and releases.
 - Refresh CI, add dependency update proposals, and build releases from version tags.

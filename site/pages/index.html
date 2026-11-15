@@ -1,0 +1,228 @@
+<main id="main">
+    <section class="hero wrap" aria-labelledby="hero-title">
+        <div class="hero-copy">
+            <p class="eyebrow">
+                <span class="status-dot" aria-hidden="true"></span> Small app.
+                Native feel.
+            </p>
+            <h1 id="hero-title">Your clipboard,<br />with a memory.</h1>
+            <p class="lede">
+                Keep the text, pictures, and files you copy within reach. Open
+                your history, choose a clip, and paste it into the app you were
+                using.
+            </p>
+            <div class="hero-actions">
+                <a class="button primary" href="#download"
+                    >Get FeatherClip <span aria-hidden="true">↓</span></a
+                ><a class="text-link" href="guide.html"
+                    >See how it works <span aria-hidden="true">↗</span></a
+                >
+            </div>
+            <p class="fine">
+                Free &amp; open source · macOS + Ubuntu · v{{VERSION}}
+            </p>
+        </div>
+        <figure class="app-figure">
+            <div class="paper-note note-one" aria-hidden="true">
+                That line you copied<br />three copies ago.
+            </div>
+            <div
+                class="clipboard-preview"
+                role="img"
+                aria-label="Illustration of clipboard history containing sample text, an image, and a file"
+            >
+                <div class="preview-heading">
+                    <strong>Clipboard</strong
+                    ><span aria-hidden="true">⌘ ⇧ V</span>
+                </div>
+                <div class="preview-search" aria-hidden="true">
+                    <span>⌕</span> Search clips
+                </div>
+                <div class="preview-count">4 / 30 clips · Listening</div>
+                <div class="sample-row selected">
+                    <span class="sample-text">A little less to remember.</span
+                    ><span class="enter-key" aria-hidden="true">↵</span>
+                </div>
+                <div class="sample-row">
+                    <span class="mini-landscape" aria-hidden="true"></span
+                    ><span>Image <small>PNG</small></span>
+                </div>
+                <div class="sample-row">
+                    <span class="file-icon" aria-hidden="true">↳</span
+                    ><span
+                        >Weekend ideas.txt <small>File reference</small></span
+                    >
+                </div>
+                <div class="sample-row">
+                    <bdi lang="fa" dir="rtl">سلام، دنیا!</bdi
+                    ><small>Hello, world.</small>
+                </div>
+                <div class="preview-bottom">
+                    <span>Pause</span><span>Clear</span
+                    ><span class="preview-more" aria-hidden="true">•••</span>
+                </div>
+            </div>
+            <figcaption>
+                Sample history. Your clipboard stays on your computer.
+            </figcaption>
+        </figure>
+    </section>
+    <section class="principles wrap" aria-label="Small by design">
+        <div>
+            <span class="principle-number">30</span>
+            <p>useful clips.<br /><strong>Only in memory.</strong></p>
+        </div>
+        <div>
+            <span class="principle-symbol" aria-hidden="true">⌘</span>
+            <p>
+                Built for your desktop.<br /><strong
+                    >Native Mac and GNOME UI.</strong
+                >
+            </p>
+        </div>
+        <div>
+            <span class="principle-symbol" aria-hidden="true">↗</span>
+            <p>Yours to keep.<br /><strong>Free and MIT licensed.</strong></p>
+        </div>
+    </section>
+    <section
+        class="section wrap"
+        id="download"
+        aria-labelledby="download-title"
+    >
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">A small addition to your day</p>
+                <h2 id="download-title">Find your FeatherClip.</h2>
+            </div>
+            <a class="text-link" href="{{RELEASE_URL}}"
+                >Release notes <span aria-hidden="true">↗</span></a
+            >
+        </div>
+        <div class="download-grid">
+            <article class="download-panel">
+                <span class="platform-label">01 / macOS</span>
+                <h3>Right at home<br />on your Mac.</h3>
+                <p>
+                    Native AppKit controls and real Apple glass on macOS 26+.
+                    System translucent material on macOS 13–15.
+                </p>
+                <div class="download-actions">
+                    <a class="button primary" href="{{MAC_ARM_URL}}"
+                        >Apple Silicon
+                        <span class="button-detail">ARM64 .dmg</span></a
+                    ><a class="button secondary" href="{{MAC_INTEL_URL}}"
+                        >Intel Mac
+                        <span class="button-detail">x86_64 .dmg</span></a
+                    >
+                </div>
+                <p class="fine">
+                    M-series Mac? Choose Apple Silicon. Requires macOS 13+.
+                </p>
+                <p class="install-note">
+                    Community builds are ad-hoc signed, not Apple-notarized.
+                    <a href="guide.html#mac-install">First-time setup</a>
+                </p>
+            </article>
+            <article class="download-panel ubuntu">
+                <span class="platform-label">02 / Ubuntu</span>
+                <h3>Feels like<br />part of GNOME.</h3>
+                <p>
+                    Native GTK4 and libadwaita controls that follow your
+                    desktop’s light and dark appearance.
+                </p>
+                <div class="download-actions">
+                    <a class="button primary" href="{{LINUX_URL}}"
+                        >Ubuntu <span class="button-detail">amd64 .deb</span></a
+                    >
+                </div>
+                <p class="fine">Ubuntu 24.04+ · 64-bit Intel or AMD.</p>
+                <p class="install-note">
+                    Default GNOME/Wayland uses the bundled bridge.
+                    <a href="guide.html#ubuntu-install">Installation guide</a>
+                </p>
+            </article>
+        </div>
+        <p class="download-meta">
+            Version {{VERSION}} ·
+            <a href="{{CHECKSUMS_URL}}">SHA-256 checksums</a> ·
+            <a href="https://github.com/A-K-6/featherclip/releases"
+                >All releases</a
+            >
+        </p>
+    </section>
+    <section class="quiet-section">
+        <div class="wrap story-split">
+            <div>
+                <p class="eyebrow">Copy. Choose. Carry on.</p>
+                <h2>A small popup.<br />A familiar rhythm.</h2>
+            </div>
+            <div class="steps">
+                <div>
+                    <span>01</span>
+                    <p>
+                        <strong>Copy something.</strong> Text, a picture, or
+                        files. FeatherClip remembers new copies while it’s
+                        running.
+                    </p>
+                </div>
+                <div>
+                    <span>02</span>
+                    <p>
+                        <strong>Open your history.</strong> Use
+                        <kbd>⌘⇧V</kbd> on Mac or <kbd>Ctrl+Alt+V</kbd> on X11.
+                        On Wayland, set a shortcut for
+                        <code>featherclip --toggle</code>.
+                    </p>
+                </div>
+                <div>
+                    <span>03</span>
+                    <p>
+                        <strong>Choose and paste.</strong> Click a clip or press
+                        Enter. Use Shift+Enter to copy without pasting.
+                        <a href="guide.html#direct-paste"
+                            >Enable direct paste on Mac</a
+                        >.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="section wrap journal" aria-labelledby="journal-title">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">From the project</p>
+                <h2 id="journal-title">A note on going native.</h2>
+            </div>
+            <a class="text-link" href="blog/"
+                >The blog <span aria-hidden="true">↗</span></a
+            >
+        </div>
+        <a class="post-row" href="blog/going-native.html"
+            ><span class="post-date"
+                ><time datetime="2026-11-15">15 Nov 2026</time
+                ><small>Release story</small></span
+            >
+            <div>
+                <h3>FeatherClip 2.0: a native home for your clipboard</h3>
+                <p>
+                    Why AppKit on Mac and GTK on Ubuntu fit a small clipboard
+                    app.
+                </p>
+            </div>
+            <span class="post-arrow" aria-hidden="true">↗</span></a
+        >
+    </section>
+    <section class="privacy-note wrap">
+        <h2>Useful things, kept local.</h2>
+        <p>
+            History lives in memory and clears when you quit. Up to 30 clips and
+            24 MiB of retained content. No accounts, cloud sync, or analytics.
+            Files stay at their original locations.
+        </p>
+        <a href="guide.html#privacy"
+            >Read about limits &amp; privacy
+            <span aria-hidden="true">↗</span></a
+        >
+    </section>
+</main>

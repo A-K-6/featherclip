@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="color-scheme" content="light dark" />
+        <title>{{TITLE}}</title>
+        <meta name="description" content="{{DESCRIPTION}}" />
+        <meta property="og:type" content="{{OG_TYPE}}" />
+        <meta property="og:title" content="{{TITLE}}" />
+        <meta property="og:description" content="{{DESCRIPTION}}" />
+        <meta property="og:url" content="{{CANONICAL}}" />
+        <meta property="og:site_name" content="FeatherClip" />
+        <meta name="theme-color" content="#315e46" />
+        <link rel="canonical" href="{{CANONICAL}}" />
+        <link rel="icon" type="image/svg+xml" href="{{ROOT}}assets/icon.svg" />
+        <link rel="stylesheet" href="{{ROOT}}assets/style.css" />
+    </head>
+    <body>
+        <a class="skip-link" href="#main">Skip to content</a>
+        <header class="site-header wrap">
+            <a class="brand" href="{{ROOT}}index.html"
+                ><img
+                    src="{{ROOT}}assets/icon.svg"
+                    alt=""
+                    width="36"
+                    height="36"
+                />FeatherClip</a
+            >
+            <nav aria-label="Main navigation">
+                <a href="{{ROOT}}index.html#download">Downloads</a>
+                <a href="{{ROOT}}guide.html">Guide</a>
+                <a href="{{ROOT}}blog/">Blog</a>
+                <a
+                    class="source-link"
+                    href="https://github.com/A-K-6/featherclip"
+                    >GitHub <span aria-hidden="true">↗</span></a
+                >
+            </nav>
+        </header>
+        {{CONTENT}}
+        <footer class="site-footer wrap">
+            <div>
+                <a class="brand small" href="{{ROOT}}index.html"
+                    ><img
+                        src="{{ROOT}}assets/icon.svg"
+                        alt=""
+                        width="26"
+                        height="26"
+                    />FeatherClip</a
+                >
+                <p>A little less to remember.</p>
+            </div>
+            <div class="footer-links">
+                <a href="https://github.com/A-K-6/featherclip">Source code</a
+                ><a href="https://github.com/A-K-6/featherclip/issues"
+                    >Report an issue</a
+                ><a
+                    href="https://github.com/A-K-6/featherclip/blob/main/LICENSE"
+                    >MIT license</a
+                >
+            </div>
+            <p class="credit">
+                Made by
+                <a href="https://github.com/A-K-6">Aeen Karimian</a>.<br />Open
+                source. Yours to use and improve.
+            </p>
+        </footer>
+    </body>
+</html>

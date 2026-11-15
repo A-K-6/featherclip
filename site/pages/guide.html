@@ -1,0 +1,226 @@
+<main id="main" class="article-shell wrap guide">
+    <header class="page-intro">
+        <p class="eyebrow">Setup &amp; troubleshooting</p>
+        <h1>A few steps.<br />Then just copy.</h1>
+        <p class="lede">
+            Install FeatherClip, enable paste, and keep a little history within
+            reach.
+        </p>
+    </header>
+    <nav class="guide-nav" aria-label="Guide contents">
+        <a href="#mac-install">macOS</a><a href="#ubuntu-install">Ubuntu</a
+        ><a href="#direct-paste">Paste not working?</a
+        ><a href="#privacy">Privacy &amp; limits</a>
+    </nav>
+    <div class="prose">
+        <section id="mac-install">
+            <p class="eyebrow">01 / macOS 13+</p>
+            <h2>Install on your Mac</h2>
+            <ol>
+                <li>
+                    <a href="index.html#download">Download the installer</a> for
+                    your Mac: <strong>Apple Silicon / ARM64</strong> for
+                    M-series Macs, or <strong>Intel / x86_64</strong> for Intel
+                    Macs.
+                </li>
+                <li>
+                    Quit an older copy of FeatherClip if it’s running. Open the
+                    disk image and drag FeatherClip into Applications, replacing
+                    the older app.
+                </li>
+                <li>
+                    Open FeatherClip. Its clipboard icon lives in the menu bar.
+                </li>
+            </ol>
+            <p>
+                These community builds are ad-hoc signed and aren’t
+                Apple-notarized. If macOS blocks the first launch, follow
+                <a href="https://support.apple.com/en-us/102445"
+                    >Apple’s Open Anyway instructions</a
+                >
+                in System Settings → Privacy &amp; Security.
+            </p>
+            <p>
+                To use history, keep your destination app active and press
+                <kbd>⌘⇧V</kbd>. Search, use arrow keys, and press Enter—or click
+                a clip. Shift+Enter or Shift-click copies without pasting.
+            </p>
+        </section>
+        <section id="direct-paste">
+            <p class="eyebrow">Mac paste permissions</p>
+            <h2>The popup closes, but nothing pastes</h2>
+            <p>
+                FeatherClip needs permission to send Paste to another app.
+                Capture and copy can work without it.
+            </p>
+            <ol>
+                <li>
+                    In FeatherClip, choose
+                    <strong>••• → Enable direct paste</strong>.
+                </li>
+                <li>
+                    In
+                    <strong
+                        >System Settings → Privacy &amp; Security →
+                        Accessibility</strong
+                    >, enable FeatherClip. Newer macOS calls this pane
+                    <strong>Device Control and Data Access</strong>.
+                </li>
+                <li>
+                    Quit and restart FeatherClip. Bring TextEdit or another
+                    destination app to the foreground, copy a short test
+                    sentence, delete it, open FeatherClip, and select that clip.
+                </li>
+            </ol>
+            <details>
+                <summary>
+                    It’s already enabled, especially after an update
+                </summary>
+                <p>
+                    An old code signature can leave a stale entry behind. Select
+                    <strong>only FeatherClip</strong> in that permission list
+                    and remove it with the minus button. Add your installed
+                    <strong>FeatherClip.app</strong> again with the plus button,
+                    enable it, and restart the app. macOS may ask you to
+                    authenticate this change.
+                </p>
+            </details>
+            <details>
+                <summary>I see more than one FeatherClip</summary>
+                <p>
+                    Quit FeatherClip and keep one installed copy in your chosen
+                    Applications folder. Move older installed copies to Trash,
+                    then open the copy you want to keep. Refresh its permission
+                    entry if needed.
+                </p>
+            </details>
+            <details>
+                <summary>A picture or file won’t paste</summary>
+                <p>
+                    The destination must accept that content. Try a text editor
+                    for text, an image-capable editor for pictures, or Finder
+                    for files. File entries point to their original locations;
+                    moved or deleted files need to be copied again.
+                </p>
+            </details>
+            <p>
+                If the destination has closed or can’t regain focus, your clip
+                stays copied. Use the destination’s normal Paste command.
+            </p>
+        </section>
+        <section id="ubuntu-install">
+            <p class="eyebrow">02 / Ubuntu 24.04+ amd64</p>
+            <h2>Install on Ubuntu</h2>
+            <p>
+                <a href="{{LINUX_URL}}">Download the .deb installer</a>, open a
+                terminal in its folder, and run:
+            </p>
+            <pre><code>sudo apt install ./FeatherClip_{{VERSION}}_amd64.deb</code></pre>
+            <p>
+                Open FeatherClip from Applications. On X11,
+                <kbd>Ctrl+Alt+V</kbd> opens the popup when the shortcut is
+                available.
+            </p>
+            <h3>Default Ubuntu / GNOME Wayland</h3>
+            <ol>
+                <li>
+                    Choose <strong>••• → Enable GNOME integration</strong> in
+                    FeatherClip.
+                </li>
+                <li>
+                    If GNOME hasn’t discovered the bridge yet, log out and back
+                    in, then enable it again.
+                </li>
+                <li>
+                    In your desktop’s keyboard settings, add a custom shortcut
+                    for <code>featherclip --toggle</code>.
+                </li>
+            </ol>
+            <p>
+                The included GNOME bridge provides clipboard access and
+                previous-window paste over local session D-Bus. It stores no
+                history and makes no network connections. GNOME 46 is exercised
+                in CI; the extension declares compatibility with GNOME 45–51.
+            </p>
+            <details>
+                <summary>Another Wayland desktop</summary>
+                <p>
+                    Support is best effort. Compositors with the clipboard
+                    data-control protocol can capture text and file references.
+                    Direct paste currently requires GNOME or X11, and image
+                    capture requires GNOME or X11. Use your normal Paste
+                    shortcut where direct paste isn’t supported.
+                </p>
+            </details>
+            <p>
+                Linux terminal apps use Ctrl+Shift+V for paste. Other apps
+                generally use Ctrl+V.
+            </p>
+        </section>
+        <section id="privacy">
+            <p class="eyebrow">Small by design</p>
+            <h2>What’s remembered</h2>
+            <ul>
+                <li>
+                    Up to <strong>30 unique clips</strong>, newest first, with a
+                    <strong>24 MiB</strong> total retained payload limit.
+                </li>
+                <li>
+                    Text up to <strong>100 KiB</strong>; PNG/TIFF images up to
+                    <strong>8 MiB</strong>. X11 uses PNG.
+                </li>
+                <li>
+                    Up to <strong>100 local file references</strong> / 100 KiB
+                    of reference metadata. Files remain at their original
+                    locations and are copied rather than cut.
+                </li>
+            </ul>
+            <p>
+                History lives only in memory. It clears when you quit. Clear
+                removes the history without changing your current system
+                clipboard. Capture starts with new copies after launch, and
+                copies made while paused aren’t backfilled.
+            </p>
+            <p>
+                Ordinary copied text can contain secrets. Pause before copying
+                sensitive information. Known concealed markers are skipped on
+                Mac and GNOME, but not every clipboard backend exposes them. OS
+                swap/crash handling and other clipboard managers are outside
+                FeatherClip’s control.
+            </p>
+            <p>
+                There are no accounts, analytics, or clipboard sync between
+                devices. This website doesn’t read your clipboard, use cookies,
+                load third-party scripts, or run analytics. It is hosted on
+                GitHub Pages;
+                <a
+                    href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement"
+                    >GitHub’s privacy statement</a
+                >
+                covers the hosting service.
+            </p>
+        </section>
+        <section id="uninstall">
+            <h2>Remove FeatherClip</h2>
+            <p>
+                Turn Start at login off and Quit first. On Mac, move the app
+                from Applications to Trash. On Ubuntu:
+            </p>
+            <pre><code>gnome-extensions disable featherclip@aeen.github
+sudo apt remove feather-clip</code></pre>
+            <p>
+                No saved clipboard history needs removing. The optional Linux
+                login item is
+                <code>~/.config/autostart/featherclip.desktop</code>.
+            </p>
+            <p>
+                Still stuck?
+                <a href="https://github.com/A-K-6/featherclip/issues"
+                    >Open an issue</a
+                >
+                with your app version, OS, desktop/session, and steps to
+                reproduce. Use sample content instead of private clipboard data.
+            </p>
+        </section>
+    </div>
+</main>

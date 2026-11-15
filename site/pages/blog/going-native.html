@@ -1,0 +1,93 @@
+<main id="main" class="article-shell wrap">
+    <a class="back-link" href="./">← All posts</a>
+    <article class="prose">
+        <header class="article-heading">
+            <p class="eyebrow">
+                Release story /
+                <time datetime="2026-11-15">15 November 2026</time>
+            </p>
+            <h1>FeatherClip 2.0:<br />a native home for your clipboard.</h1>
+            <p class="lede">
+                A clipboard app should feel like a small part of the desktop you
+                already know.
+            </p>
+            <p class="byline">By Aeen Karimian · 3 minute read</p>
+        </header>
+        <p>
+            The idea behind FeatherClip is simple: sometimes the thing you need
+            is the thing you copied three copies ago. A small history popup
+            gives you a way back. Open it, choose a clip, paste it into the app
+            you were using, and carry on.
+        </p>
+        <p>
+            Version 2.0 brings that idea to native interfaces on both macOS and
+            Ubuntu. The Tauri interface has been replaced by Swift and AppKit on
+            Mac, and Rust with GTK4 and libadwaita on Ubuntu.
+        </p>
+        <h2>Glass that belongs to the Mac</h2>
+        <p>
+            On macOS 26 and newer, FeatherClip uses Apple’s own glass view.
+            Search, menus, buttons, and the clipboard list are native AppKit
+            controls. On macOS 13–15, the popup uses the system’s translucent
+            material.
+        </p>
+        <p>
+            The popup stays a separate floating panel. It can appear over
+            full-screen Spaces, and it doesn’t become a tab inside another
+            window. Press <kbd>⌘⇧V</kbd> to bring it up.
+        </p>
+        <h2>A familiar place on Ubuntu</h2>
+        <p>
+            The Ubuntu app uses GTK4 and libadwaita, following GNOME’s light and
+            dark appearance. There’s a small list, search, Pause, Clear, and a
+            menu for the few other options.
+        </p>
+        <p>
+            GNOME Wayland has its own clipboard and focus rules. The installer
+            includes a small GNOME Shell bridge so FeatherClip can read copies
+            and paste back into the previous window. A first install may need a
+            logout and login before GNOME discovers it.
+        </p>
+        <h2>Keep the history small</h2>
+        <p>
+            FeatherClip remembers up to 30 unique clips, with 24 MiB available
+            for retained clipboard payloads. History stays in memory and
+            disappears when you quit. It begins with new copies after launch;
+            paused copies aren’t backfilled when you resume.
+        </p>
+        <p>
+            Text, PNG/TIFF images, and local file references are supported. File
+            contents aren’t stored: the original files need to remain available.
+            Rich text becomes plain text, and app-specific formats aren’t
+            retained.
+        </p>
+        <h2>Select a clip. Return to your work.</h2>
+        <p>
+            Keep your destination app active before opening FeatherClip. Select
+            a clip to copy it, restore that app, and send Paste. Shift+Enter
+            copies without pasting.
+        </p>
+        <p>
+            On Mac, sending Paste requires FeatherClip’s Accessibility
+            permission. A replaced, ad-hoc signed build can leave an old
+            permission entry behind, even if its switch looks enabled. If a
+            popup closes without pasting,
+            <a href="{{ROOT}}guide.html#direct-paste"
+                >the setup guide walks through refreshing that entry</a
+            >.
+        </p>
+        <h2>Try it, or make it yours</h2>
+        <p>
+            There are separate installers for Apple Silicon Macs, Intel Macs,
+            and Ubuntu 24.04+ amd64. The project is MIT licensed, and its source
+            and build checks are public.
+        </p>
+        <p class="article-cta">
+            <a class="button primary" href="{{ROOT}}index.html#download"
+                >Get FeatherClip <span aria-hidden="true">↓</span></a
+            ><a class="text-link" href="https://github.com/A-K-6/featherclip"
+                >Read the source <span aria-hidden="true">↗</span></a
+            >
+        </p>
+    </article>
+</main>

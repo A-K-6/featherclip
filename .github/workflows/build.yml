@@ -94,6 +94,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
+      actions: write
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/download-artifact@v8.0.2
@@ -120,3 +121,7 @@ jobs:
           set -euo pipefail
           gh release create "$GITHUB_REF_NAME" release/*.dmg release/*.deb release/SHA256SUMS \
             --verify-tag --latest --title "FeatherClip $(cat VERSION)" --notes-file release-notes.md
+      - name: Refresh the download website
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --ref main

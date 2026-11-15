@@ -6,7 +6,7 @@ A tiny **native** clipboard popup for macOS and Ubuntu. Copy text, pictures or f
 - **Ubuntu:** Rust + GTK4 + libadwaita. Native GNOME controls and automatic light/dark appearance.
 - No Tauri, webview, Electron, Node runtime, accounts, network requests or cloud sync. Appearance follows each desktop; clipboard history is local.
 
-[Download](https://github.com/A-K-6/featherclip/releases/latest) · [Report a bug](https://github.com/A-K-6/featherclip/issues)
+[Website & blog](https://a-k-6.github.io/featherclip/) · [Download](https://github.com/A-K-6/featherclip/releases/latest) · [Report a bug](https://github.com/A-K-6/featherclip/issues)
 
 ## Install
 
