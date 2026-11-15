@@ -16,7 +16,7 @@ gio = "0.20"
 arboard = { version = "3.7", default-features = false, features = ["wayland-data-control", "image-data"] }
 url = "2"
 image = { version = "0.25", default-features = false, features = ["png", "tiff"] }
-x11rb = { version = "0.13", features = ["xtest", "xfixes"] }
+x11rb = { version = "0.14", features = ["xtest", "xfixes"] }
 global-hotkey = "0.8"
 ksni = { version = "0.3", features = ["blocking"] }
 
