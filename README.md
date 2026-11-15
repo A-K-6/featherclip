@@ -32,7 +32,7 @@ Other Linux desktops are best effort: X11 and Wayland compositors supporting the
 
 - Copy text as usual. Open FeatherClip from the tray/menu bar or your applications launcher.
 - Keep your destination app active and open the popup. Search, then click a clip or press **Enter**: FeatherClip restores the previous app and sends Paste. **Shift-click** or **Shift+Enter** copies without pasting.
-- **⌘⇧V** opens history on macOS; **Ctrl+Alt+V** on Linux/X11 when available. In Wayland, add a custom desktop keyboard shortcut for the command `featherclip`; opening it again focuses the running instance. The shortcut toggles the popup; **Escape** or clicking outside dismisses it. Arrow keys browse clips, and Enter selects the first result when search has focus.
+- **⌘⇧V** opens history on macOS; **Ctrl+Alt+V** on Linux/X11 when available. In Wayland, add a custom desktop keyboard shortcut for the command `featherclip --toggle`; opening it again focuses the running instance. The shortcut toggles the popup; **Escape** or clicking outside dismisses it. Arrow keys browse clips, and Enter selects the first result when search has focus.
 - **Pause** and **Clear** sit below the clip list. **Start at login** and **Quit** are under the **•••** menu. Startup is off by default.
 - Dismissing the popup keeps the tray and clipboard worker running. **Quit** ends the app and discards its history. Reopen from your launcher if your desktop hides tray icons.
 

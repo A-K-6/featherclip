@@ -63,6 +63,7 @@ async fn copy_clip(worker: tauri::State<'_, Worker>, id: u32) -> Result<(), Stri
 async fn select_clip(app: AppHandle, id: u32, copy_only: bool) -> Result<&'static str, String> {
     use std::sync::atomic::Ordering;
     let controller = app.state::<paste::Controller>();
+    let popup = app.get_webview_window("history");
     if controller.busy.swap(true, Ordering::AcqRel) {
         return Err("A clip is already being selected.".into());
     }
@@ -84,7 +85,9 @@ async fn select_clip(app: AppHandle, id: u32, copy_only: bool) -> Result<&'stati
     tauri::async_runtime::spawn_blocking(move || paste::perform(target))
         .await
         .map_err(|_| "Copied, but Paste couldn't finish. Paste manually.".to_string())??;
-    close_window(app.clone());
+    if let Some(popup) = popup {
+        let _ = popup.close();
+    }
     Ok("pasted")
 }
 
@@ -207,23 +210,31 @@ fn show_history(app: &AppHandle) {
     });
 }
 
+fn toggle_history(app: &AppHandle) {
+    if app.get_webview_window("history").is_some() {
+        close_window(app.clone());
+    } else {
+        show_history(app);
+    }
+}
+
 fn main() {
     let smoke = std::env::args().any(|arg| arg == "--smoke-test");
     let demo = smoke || std::env::args().any(|arg| arg == "--demo");
     tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            show_history(app)
+        .plugin(tauri_plugin_single_instance::init(|app, args, _| {
+            if args.iter().any(|arg| arg == "--toggle") {
+                toggle_history(app);
+            } else {
+                show_history(app);
+            }
         }))
         .plugin(tauri_plugin_autostart::Builder::new().build())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, _, event| {
                     if event.state == ShortcutState::Pressed {
-                        if app.get_webview_window("history").is_some() {
-                            close_window(app.clone());
-                        } else {
-                            show_history(app);
-                        }
+                        toggle_history(app);
                     }
                 })
                 .build(),
